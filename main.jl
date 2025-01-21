@@ -11,6 +11,8 @@ altPs = 7
 max_height = 10
 GT_spies = 50
 UGA_camps = 5
+UGA_interact_range = 20
+GT_interact_range = 10
 
 # Generate the topography
 topo = zeros(Float64, L, L);
@@ -30,7 +32,7 @@ function tick_host()
 	# Create a 2D array of zeros to represent the UGA-UGA adjacency matrix
 	UGA_adj = CUDA.zeros(Int, UGA_camps, UGA_camps)
 	# Create a 2D array of zeros to represent the GT-UGA adjacency matrix
-	GT_UGA_adj = CUDA.zeros(Int, GT_spies, UGA_camps)
+	GT_UGA_adj = CUDA.zeros(Int, GT_spies+UGA_camps, GT_spies+UGA_camps)
 	# Create a 2D array of zeros to represent the global information list from GT spies on UGA camps
 	GT_info = CUDA.zeros(Int8, UGA_camps, 4)
 	# Create a 2D array of zeros to represent the global information list from UGA camps on GT spies
@@ -39,8 +41,8 @@ function tick_host()
 	for time in 1:500
 		# call the device tick function
 		# tick<<<1,1>>>(state, topo, GT_adj, UGA_adGT_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L)
-		@cuda threads = t blocks = b global ( topo, GT_adj, UGA_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L )
-		@cuda threads = t blocks = b gt_do(topo, GT_adj, UGA_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L)
-		@cuda threads = t blocks = b uga_do(topo, GT_adj, UGA_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L)
+		@cuda threads = t blocks = b global_coherence(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L, UGA_interact_range, GT_interact_range)
+		@cuda threads = t blocks = b gt_do(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L)
+		@cuda threads = t blocks = b uga_do(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_info, UGA_info, GT_spies, UGA_camps, L)
 	end
 end
