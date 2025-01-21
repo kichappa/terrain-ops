@@ -19,7 +19,7 @@ function alt_kernel(A, B, m, n, alt_p, k, power)
     return
 end
 
-function slope_kernel(A, Bx, By, m, n)
+function slope_kernel_5(A, Bx, By, m, n)
 		i = threadIdx().x + (blockIdx().x - 1) * blockDim().x
 		j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
 		if 3 <= i <= m-2 && 3 <= j <= n-2
