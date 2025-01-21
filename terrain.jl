@@ -1,6 +1,6 @@
 include("terrain.kernels.jl")
 
-function generate_points(seed, n, altPs, max_height)
+function generate_points(n, altPs, max_height, seed=0)
 	Random.seed!(seed)
 	alt_pos = rand(1:n, (altPs, 2))
 	alt_h = rand(Float64, (altPs, 1)) * max_height
