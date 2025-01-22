@@ -1,8 +1,12 @@
 include("terrain.kernels.jl")
 
-function generate_points(n, altPs, max_height, seed=0)
+function generate_points(sim_constants)
+	L = sim_constants[1]
+	seed = sim_constants[2]
+	altPs = sim_constants[3]
+	max_height = sim_constants[5]
 	Random.seed!(seed)
-	alt_pos = rand(1:n, (altPs, 2))
+	alt_pos = rand(1:L, (altPs, 2))
 	alt_h = rand(Float64, (altPs, 1)) * max_height
 	hcat(alt_pos, alt_h)
 	alt_p = hcat(alt_pos, alt_h)
@@ -47,7 +51,7 @@ function topography_gpu(A, alt_p, power, max_threads = nothing)
 
 	@cuda threads = (threads_x, threads_y) blocks = (blocks_x, blocks_y) alt_kernel(A_gpu, B, m, n, CuArray(alt_p), k, power)
 
-	return collect(B)
+	return collect(B), rand(Float64, L, L) .< (b_density / 100)
 end
 
 function slope_gpu(topo)

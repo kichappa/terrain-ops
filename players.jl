@@ -12,7 +12,7 @@ function create_UGA(n_enem, topo, L, seed=0)
     return CuArray(hcat(enem_pos, enem_r, enem_firepower))
 end
 
-function create_GT(n_spies, topo, L, seed=0)
+function create_GT(n_spies, topo, bushes, L, seed=0)
     # if !isnothing(seed)
     #     Random.seed!(seed)
     # end
@@ -21,6 +21,7 @@ function create_GT(n_spies, topo, L, seed=0)
     spy_z = [topo[row[1], row[2]] for row in eachrow(spy_pos)]
     spy_frozen = rand(0:1, (n_spies,1))
     spy_frozen_cycle = fill(-1, (n_spies,1))
+    spy_in_bush = [bushes[row[1], row[2]] for row in eachrow(spy_pos)]
     # spies = hcat(spy_pos, spy_r)
-    return CuArray(hcat(spy_pos, spy_z, spy_frozen, spy_frozen_cycle))
+    return CuArray(hcat(spy_pos, spy_frozen, spy_frozen_cycle, spy_in_bush))
 end
