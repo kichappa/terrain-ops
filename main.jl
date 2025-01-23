@@ -20,13 +20,30 @@ escape_time = 20 # 11, this is the time it takes for a GT spy to escape after be
 capture_prob_no_bush = 0.5 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
 capture_prob_bush = 0.1 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
 
-# GPU array of all constants
-sim_constants = CuArray([L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush])
+struct simulation_constants
+	L::Int32
+	seed::Int32
+	altPs::Int32
+	bush_density::Int32
+	max_height::Int32
+	GT_spies::Int32
+	UGA_camps::Int32
+	GT_interact_range::Int32
+	UGA_interact_range::Int32
+	MAX_ERROR::Float32
+	escape_time::Int32
+	capture_prob_no_bush::Float32
+	capture_prob_bush::Float32
+end
+
+# struct of all constants
+sim_constants = simulation_constants(L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush)
+
 
 # Generate the topography
-topo, bushes = topography_gpu(zeros(Float64, L, L), generate_points(sim_constants), 3)
+topo, bushes = topography_gpu(zeros(Float64, L, L), generate_points(sim_constants_CPU), 3)
 
-Plots.plot(1:L, 1:L, topo, st = :surface, ratio = 1, zlim = [0, L], xlim = [0, L], ylim = [0, L], xlabel = "X", ylabel = "Y", zlabel = "Z", bgcolor = "black")
+# Plots.plot(1:L, 1:L, topo, st = :surface, ratio = 1, zlim = [0, L], xlim = [0, L], ylim = [0, L], xlabel = "X", ylabel = "Y", zlabel = "Z", bgcolor = "black")
 
 # initialize the state for GT and UGA
 UGA = create_UGA(UGA_camps, topo, L, seed)
@@ -53,7 +70,6 @@ function tick_host()
 	GT_knowledge = CUDA.zeros(Int, 5, 500 * 3, GT_spies)
 	GT_knowledge_count = CUDA.zeros(Int, GT_spies)
 	GT_knowledge_prev_count = CUDA.zeros(Int, GT_spies)
-	GT_knowledge_10behind = CUDA.zeros(Int, GT_spies) # not used... do we need this?
 
 	for time in 1:500
 		new_randoms = CUDA.rand(Float32, 2, GT_spies + UGA_camps) .* 2 .- 1

@@ -18,11 +18,11 @@
 	return sqrt((x1 - x2)^2 + (y1 - y2)^2)
 end
 
-@inline function size_error(dist, MAX_ERROR, MAX_DIST)
+@inline function firepower_error(dist, MAX_ERROR, MAX_DIST)
 	return MAX_ERROR * (dist / MAX_DIST)^4
 end
 
-@inline function firepower_error(dist, MAX_ERROR, MAX_DIST)
+@inline function size_error(dist, MAX_ERROR, MAX_DIST)
 	return MAX_ERROR * ((dist - MAX_DIST) / MAX_DIST)^4
 end
 
@@ -37,9 +37,9 @@ function gt_observe(knowledge, k_count, prev_k_count, topo, UGA, GT, GT_adj, UGA
 	that = threadIdx().x
 
 	# am I captured? If so, is it time to move?
-	if GT[me, 3] == 1 && !time - GT[me, 4] < sim_constants[11]
+	if GT[me, 3] == 1 && !time - GT[me, 4] < sim_constants.escape_time
 		return
-	elseif GT[me, 3] == 1 && time - GT[me, 4] >= sim_constants[11]
+	elseif GT[me, 3] == 1 && time - GT[me, 4] >= sim_constants.escape_time
 		# time to move
 		GT[me, 3] = 0
 		GT[me, 4] = -1
@@ -85,11 +85,11 @@ function gt_observe(knowledge, k_count, prev_k_count, topo, UGA, GT, GT_adj, UGA
 			dist = distance(GT[me, 1], GT[me, 2], UGA[that, 1], UGA[that, 2])
 
 			# how much error do I have in my knowledge?
-			camp_size_error      = error(dist, sim_constant[10], sim_constants[8])
-			camp_firepower_error = firepower_error(dist, sim_constant[10], sim_constants[8])
+			camp_size_error      = error(dist, sim_constant[10], sim_constants.GT_interact_range)
+			camp_firepower_error = firepower_error(dist, sim_constant[10], sim_constants.GT_interact_range)
 			# update my knowledge about that camp
-			camp_size      = UGA[that, 3] * camp_size_error * randoms[1, this]
-			camp_firepower = UGA[that, 4] * camp_firepower_error * randoms[2, this]
+			camp_size      = UGA[that, 3] * (1 + camp_size_error * randoms[1, this])
+			camp_firepower = UGA[that, 4] * (1 + camp_firepower_error * randoms[2, this])
 
 			# store the knowledge
 			current_count = CUDA.@atomic count[1] += 1
@@ -182,8 +182,12 @@ function uga_observe(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_hive_info, U
 			# is that spy in the bush?
 			that_in_bush = GT[that, 5]
 			# do I capture it?
-			capture = Integer((that_in_bush * sim_constant[13] + (1 - that_in_bush) * capture_probability(distance(UGA[me, 1], UGA[me, 2], GT[that, 1], GT[that, 2]), sim_constants[9], sim_constants[12])) * (randoms[1, this] + 1 < 1))
-
+			capture = Integer(
+				randoms[1, this] + 1 <
+				2 * (that_in_bush * sim_constant.capture_prob_bush +
+					 (1 - that_in_bush) * capture_probability(distance(UGA[me, 1], UGA[me, 2], GT[that, 1], GT[that, 2]), sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)
+				),
+			)
 			if capture == 1
 				# I captured that spy
 				GT[that, 3] = 1
@@ -193,5 +197,9 @@ function uga_observe(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_hive_info, U
 
 		end
 	end
+	return
+end
+
+function gt_observe(topo, bushes, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 	return
 end

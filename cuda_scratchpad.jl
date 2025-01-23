@@ -13,17 +13,19 @@ GT_interact_range = 10 # 8
 # GPU array of all constants
 sim_constants = CuArray([L, seed, altPs, max_height, GT_spies, UGA_camps, UGA_interact_range, GT_interact_range])
 
-function test_kernel(sim_constants)
+struct foo
+    bar1::Int32
+    bar2::Float32
+end
+
+function test_kernel(f::foo)
     threadNum = threadIdx().x
-    a = CuStaticSharedArray(Int, 1)
-    a[1] = 0
-    b=0
-    b = CUDA.@atomic a[1] += 1
-    @cuprintln("Thread $threadNum: a = $(a[1]), b = $b")
-    sync_threads()
-    b = a[1]
-    @cuprintln("After sync threads $threadNum: a = $(a[1]), b = $b")
+    @cuprintln("Foo f: $(f.bar1) $(f.bar2) Thread: $threadNum")
     return
 end
 
-@cuda threads = 8 blocks = 1 shmem = sizeof(Int) test_kernel(sim_constants)
+f = foo(1, 2)
+
+println(f[1], f[2])
+
+@cuda threads = 8 blocks = 1 shmem = sizeof(Int) test_kernel(f)

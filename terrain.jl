@@ -1,11 +1,12 @@
 include("terrain.kernels.jl")
+using Random
 
 function generate_points(sim_constants)
-	L = sim_constants[1]
-	seed = sim_constants[2]
-	altPs = sim_constants[3]
-	max_height = sim_constants[5]
-	Random.seed!(seed)
+	L = sim_constants.L
+	seed = sim_constants.seed
+	altPs = sim_constants.altPs
+	max_height = sim_constants.max_height
+	# Random.seed!(seed)
 	alt_pos = rand(1:L, (altPs, 2))
 	alt_h = rand(Float64, (altPs, 1)) * max_height
 	hcat(alt_pos, alt_h)
