@@ -85,3 +85,68 @@ function gt_observe(knowledge, k_count, prev_k_count, topo, UGA, GT, GT_adj, UGA
 
 	return
 end
+
+
+
+@cuda kernel function fill_GT_adj_kernel(GT, GT_adj, GT_spies, GT_interact_range)
+	# Get thread indices
+	i = threadIdx().x + (blockIdx().x - 1) * blockDim().x
+	j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
+
+	# Check if indices are within bounds
+	if i <= GT_spies && j <= GT_spies && i != j
+			# Compute Euclidean distance between spy `i` and spy `j`
+			dist = sqrt((GT[i, 1] - GT[j, 1])^2 + (GT[i, 2] - GT[j, 2])^2)
+			# Update adjacency matrix
+			if dist <= GT_interact_range
+					GT_adj[i, j] = 1
+			else
+					GT_adj[i, j] = 0
+			end
+	end
+end
+
+
+
+@cuda kernel function fill_UGA_adj_kernel(UGA, UGA_adj, UGA_camps, UGA_interact_range)
+	# Get thread indices
+	i = threadIdx().x + (blockIdx().x - 1) * blockDim().x
+	j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
+
+	# Check if indices are within bounds
+	if i <= UGA_camps && j <= UGA_camps && i != j
+			# Compute Euclidean distance between camp `i` and camp `j`
+			dist = sqrt((UGA[i, 1] - UGA[j, 1])^2 + (UGA[i, 2] - UGA[j, 2])^2)
+			# Update adjacency matrix
+			if dist <= UGA_interact_range
+					UGA_adj[i, j] = 1
+			else
+					UGA_adj[i, j] = 0
+			end
+	end
+end
+
+@cuda kernel function fill_UGA_GT_adj_kernel(UGA, GT, UGA_GT_adj, GT_spies, UGA_camps, UGA_interact_range, cycle)
+	# Get thread indices
+	# TODO:include probability of being seen inside the bush
+	i = threadIdx().x + (blockIdx().x - 1) * blockDim().x
+	j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
+
+	# Check if indices are within bounds
+	if i <= GT_spies && j <= UGA_camps
+			# Compute Euclidean distance between spy `i` and camp `j`
+			dist = sqrt((GT[i, 1] - UGA[j, 1])^2 + (GT[i, 2] - UGA[j, 2])^2)
+			# Update adjacency matrix
+			if dist <= UGA_interact_range 
+					UGA_GT_adj[i, j] = 1
+					GT[i, 3] = 1
+					GT[i, 4] = cycle
+
+			else
+				UGA_GT_adj[i, j] = 0
+			end
+	end
+end #do we really need this?
+
+# @cuda kernel function fill_GT_UGA_adj_kernel(GT, UGA, GT_UGA_adj, GT_spies, UGA_camps, GT_interact_range, cycle)
+	

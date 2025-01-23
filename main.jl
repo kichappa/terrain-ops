@@ -31,6 +31,7 @@ UGA = create_UGA(UGA_camps, topo, L, seed)
 GT = create_GT(GT_spies, topo, L, seed)
 
 
+
 function tick_host()
 	# Create a 2D array of zeros to represent the GT-GT adjacency matrix
 	GT_adj = CUDA.zeros(Int, GT_spies, GT_spies)
@@ -38,6 +39,8 @@ function tick_host()
 	UGA_adj = CUDA.zeros(Int, UGA_camps, UGA_camps)
 	# Create a 2D array of zeros to represent the GT-UGA adjacency matrix
 	GT_UGA_adj = CUDA.zeros(Int, GT_spies + UGA_camps, GT_spies + UGA_camps)
+	# Create a 2D array of zeros to represent the UGA-GT adjacency matrix
+	UGA_GT_adj = CUDA.zeros(Int, GT_spies + UGA_camps, GT_spies + UGA_camps)
 	# Create a 2D array of zeros to represent the global information list from GT spies on UGA camps
 	GT_hive_info = CUDA.zeros(Int8, UGA_camps, 4)
 	# Create a 2D array of zeros to represent the global information list from UGA camps on GT spies
@@ -80,5 +83,20 @@ function tick_host()
 		# move the players
 		@cuda threads = 1 blocks = GT_spies gt_move(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 		@cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_adj, UGA_adj, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
+
+		threads_per_block = (16, 16)  # 16x16 block of threads
+blocks_per_grid_gt = (
+    cld(GT_spies, threads_per_block[1]),
+    cld(GT_spies, threads_per_block[2])
+
+)
+blocks_per_grid_uga = (
+		cld(UGA_camps, threads_per_block[1]),
+		cld(UGA_camps, threads_per_block[2])
+)
+		@cuda threads = threads_per_block blocks = blocks_per_grid_gt fill_GT_adj_kernel(GT, GT_adj, GT_spies, GT_interact_range)
+		@cuda threads = threads_per_block blocks = blocks_per_grid_uga fill_UGA_adj_kernel(UGA, UGA_adj, UGA_camps, UGA_interact_range)
+
+
 	end
 end
