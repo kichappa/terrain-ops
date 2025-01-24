@@ -2,11 +2,7 @@ include("tick.kernels.jl")
 using CSV, DataFrames
 
 function tick_host(GT, UGA, topo, bushes, sim_constants)
-	# 	# Create a 2D array of struct to represent the GT-GT adjacency matrix 
-	# 	GT_adj = CuArray([gt_gt_struct() for i in 1:GT_spies, j in 1:GT_spies])
-	# 	# Create a 2D array of struct to represent the UGA-UGA adjacency matrix 
-	# 	UGA_adj = CuArray([uga_uga_struct() for i in 1:UGA_camps, j in 1:UGA_camps])
-	# Create a 2D array of struct to represent the GT-UGA adjacency matrix 
+	# Create a 2D array of structs to represent the GT-UGA adjacency matrix 
 	GT_UGA_adj = CuArray([gt_uga_struct() for i in 1:GT_spies+UGA_camps, j in 1:GT_spies+UGA_camps])
 	# Create a 2D array of struct to represent the global information list from GT spies on UGA camps
 	GT_hive_info = CUDA.zeros(Int8, UGA_camps, 4)
@@ -35,13 +31,6 @@ function tick_host(GT, UGA, topo, bushes, sim_constants)
 		threads = (32, 32)
 		blocks = (cld(GT_spies + UGA_camps, threads[1]), cld(GT_spies + UGA_camps, threads[2]))
 		@cuda threads = threads blocks = blocks global_coherence(topo, bushes, UGA, GT, sim_constants.GT_spies, sim_constants.UGA_camps, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
-
-		# write again
-		adj_info = map(x -> string(" ", x.visible, ";", x.distance), collect(GT_UGA_adj))
-		CSV.write(
-			"tmp/GT_UGA_adj_post.CSV",
-			DataFrame(adj_info, :auto),
-		)
 
 		# acquire new information
 		# @cuda threads = GT_spies + UGA_camps blocks = GT_spies shmem = sizeof(Int) gt_observe(
