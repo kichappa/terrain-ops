@@ -18,14 +18,30 @@ struct foo
     bar2::Float32
 end
 
-function test_kernel(f::foo)
-    threadNum = threadIdx().x
-    @cuprintln("Foo f: $(f.bar1) $(f.bar2) Thread: $threadNum")
+function test_kernel(f)
+
+    a::Int32 = -1
+
+    a = 1<10
+    @cuprintln(a, typeof(a))
+
     return
 end
 
 f = foo(1, 2)
 
-println(f[1], f[2])
+# println(f[1], f[2])
 
-@cuda threads = 8 blocks = 1 shmem = sizeof(Int) test_kernel(f)
+array = [foo(i, j) for i in 1:8, j in 1:2]
+
+
+println("Size of array: ", size(array))
+
+for i in 1:8
+    for j in 1:2
+        print("$(array[i, j].bar1) $(array[i, j].bar2) |")
+    end
+    println()
+end
+
+@cuda threads = 8 blocks = 2 shmem = sizeof(Int) test_kernel(CuArray(array))

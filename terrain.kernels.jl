@@ -1,4 +1,4 @@
-function alt_kernel(A, B, m, n, alt_p, k, power)
+function alt_kernel(B, m, n, alt_p, k, power)
     i = threadIdx().x + (blockIdx().x - 1) * blockDim().x
     j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
     if i <= m && j <= n

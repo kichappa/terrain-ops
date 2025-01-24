@@ -2,19 +2,15 @@ include("terrain.kernels.jl")
 using Random
 
 function generate_points(sim_constants)
-	L = sim_constants.L
-	seed = sim_constants.seed
-	altPs = sim_constants.altPs
-	max_height = sim_constants.max_height
 	# Random.seed!(seed)
-	alt_pos = rand(1:L, (altPs, 2))
-	alt_h = rand(Float64, (altPs, 1)) * max_height
+	alt_pos = rand(1:sim_constants.L, (Int64(sim_constants.altPs), 2))
+	alt_h = rand(Float64, (Int64(sim_constants.altPs), 1)) * sim_constants.max_height
 	hcat(alt_pos, alt_h)
 	alt_p = hcat(alt_pos, alt_h)
 	return alt_p
 end
 
-function topography_gpu(A, alt_p, power, max_threads = nothing)
+function topography_gpu(A, alt_p, power, b_density, max_threads = nothing)
 	m, n = size(A)
 	k, _ = size(alt_p)
 	A_gpu = CuArray(A)
@@ -50,9 +46,9 @@ function topography_gpu(A, alt_p, power, max_threads = nothing)
 	blocks_x = ceil(Int, m / threads_x)
 	blocks_y = ceil(Int, n / threads_y)
 
-	@cuda threads = (threads_x, threads_y) blocks = (blocks_x, blocks_y) alt_kernel(A_gpu, B, m, n, CuArray(alt_p), k, power)
+	@cuda threads = (threads_x, threads_y) blocks = (blocks_x, blocks_y) alt_kernel(B, m, n, CuArray(alt_p), k, power)
 
-	return collect(B), rand(Float64, L, L) .< (b_density / 100)
+	return collect(B), Int32.(collect(CUDA.rand(Float64, L, L) .< (b_density / 100)))
 end
 
 function slope_gpu(topo)
