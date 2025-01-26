@@ -12,22 +12,56 @@ struct simulation_constants
 	escape_time::Int32
 	capture_prob_no_bush::Float32
 	capture_prob_bush::Float32
+	visible_prob::Float32
 	sim_time::Int32
 end
 
-# struct gt_gt_struct
-# 	visible::Int32
-# end
-# gt_gt() = gt_gt(0)
+struct camp
+	x::Int32
+	y::Int32
+	size::Int32
+	firepower::Int32
+end
 
+struct spy
+	x::Int32
+	y::Int32
+	frozen::Int32
+	frozen_cycle::Int32
+	in_bush::Int32
+end
 
-# struct uga_uga_struct
-# 	visible::Int32
-# end
-# uga_uga() = uga_uga(0)
+struct spy_knowledge
+	time::Int32
+	size::Float32
+	firepower::Float32
+	size_error::Float32
+	firepower_error::Float32
+	source::Int32
+end
+spy_knowledge() = spy_knowledge(0, 0.0, 0.0, 0.0, 0.0, 0)
 
-struct gt_uga_struct
-	visible::Int32
+struct camp_hive_knowledge
+	x::Int32
+	y::Int32
+	time::Int16
+	frozen::Int16
+	frozen_cycle::Int32
+end
+camp_hive_knowledge() = camp_hive_knowledge(0, 0, 0, 0, 0)
+
+struct adjacency
+	visible::Int16
+	interact::Int16
 	distance::Float32
 end
-gt_uga_struct() = gt_uga_struct(0, 0.0)
+adjacency() = adjacency(0, 0.0)
+adjacency(i, d) = adjacency(0, i, d)
+
+function Base.show(io::IO, obj::camp)
+    print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")
+end
+
+function Base.show(io::IO, obj::spy)
+	print(io, "$(obj.x), $(obj.y), $(obj.frozen), $(obj.frozen_cycle), $(obj.in_bush)")
+end

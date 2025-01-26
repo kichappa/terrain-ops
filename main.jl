@@ -20,10 +20,11 @@ MAX_ERROR = 0.3 # 10, this is the maximum error in the GT's information acquest 
 escape_time = 20 # 11, this is the time it takes for a GT spy to escape after being captured
 capture_prob_no_bush = 0.5 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
 capture_prob_bush = 0.1 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
-sim_time = 1 # 14, this is the number of time steps the simulation will run for
+visible_prob = 0.75 # 14, this is the probability of a GT spy being visible to a UGA camp regardless of being captured
+sim_time = 2 # 14, this is the number of time steps the simulation will run for
 
 # struct of all constants
-sim_constants = simulation_constants(L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush, sim_time)
+sim_constants = simulation_constants(L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush, visible_prob, sim_time)
 
 
 # Generate the topography
@@ -36,13 +37,13 @@ UGA = create_UGA(UGA_camps, topo, L, seed)
 GT = create_GT(GT_spies, topo, bushes, L, seed)
 
 println("Spies:")
-for spy in eachrow(GT)
-	println(spy)
+for spy in eachindex(GT)
+	println(collect(GT)[spy])
 end
 
 println("Camps:")
-for camp in eachrow(UGA)
-	println(camp)
+for camp in eachindex(UGA)
+	println(collect(UGA)[camp])
 end
 
 tick_host(GT, UGA, CuArray(topo), CuArray(bushes), sim_constants)

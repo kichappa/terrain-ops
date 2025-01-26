@@ -18,12 +18,24 @@ struct foo
     bar2::Float32
 end
 
-function test_kernel(f)
+function test_kernel(f, arr)
 
-    a::Int32 = -1
+    @cuprintln("Hello from thread ", threadIdx().x, " bar1 = ", f.bar1, " bar2 = ", f.bar2)
+    @cuprintln("Size of array: ", size(arr))
+    arr[1].bar1 = 10
+    arr[1].bar2 = 10.0
 
-    a = 1<10
-    @cuprintln(a, typeof(a))
+    # for i in 1:2
+    #     @cuprintln("Hello from thread ", threadIdx().x, " i = $i")
+    #     if rand(Float32) > 0.5
+    #         i-=1
+    #         @cuprintln("Here's an extra random number: ", rand(Float32), " from thread ", threadIdx().x, " i = $i")
+    #         continue
+    #     else 
+    #         @cuprintln("Here's a random number: ", rand(Float32), " from thread ", threadIdx().x, " i = $i")
+
+    #     end
+    # end
 
     return
 end
@@ -44,4 +56,4 @@ for i in 1:8
     println()
 end
 
-@cuda threads = 8 blocks = 2 shmem = sizeof(Int) test_kernel(CuArray(array))
+@cuda threads = 1 blocks = 1 shmem = sizeof(Int) test_kernel(f, CuArray([foo(1, 2)]))
