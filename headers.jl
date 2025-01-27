@@ -41,6 +41,15 @@ struct spy_knowledge
 end
 spy_knowledge() = spy_knowledge(0, 0.0, 0.0, 0.0, 0.0, 0)
 
+struct spy_hive_knowledge
+	time::Int32
+	size::Float32
+	firepower::Float32
+	size_error::Float32
+	firepower_error::Float32
+end
+spy_hive_knowledge = spy_hive_knowledge(0, 0.0, 0.0, 0.0, 0.0)
+
 struct camp_hive_knowledge
 	x::Int32
 	y::Int32

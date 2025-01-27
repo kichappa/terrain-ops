@@ -22,6 +22,8 @@ capture_prob_no_bush = 0.5 # 12, this is the minimum probability of capturing a 
 capture_prob_bush = 0.1 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
 visible_prob = 0.75 # 14, this is the probability of a GT spy being visible to a UGA camp regardless of being captured
 sim_time = 2 # 14, this is the number of time steps the simulation will run for
+gt_coord_size_threshold = 2 # size threshold to check if the same UGA camps spotted
+gt_coord_firepower_threshold = 2 # firepower threshold to check if the same UGA camps spotted
 
 # struct of all constants
 sim_constants = simulation_constants(L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush, visible_prob, sim_time)

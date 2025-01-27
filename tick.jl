@@ -5,7 +5,7 @@ function tick_host(GT, UGA, topo, bushes, sim_constants)
 	# Create a 2D array of structs to represent the GT-UGA adjacency matrix 
 	GT_UGA_adj = CuArray([adjacency() for i in 1:GT_spies+UGA_camps, j in 1:GT_spies+UGA_camps])
 	# Create a 2D array of struct to represent the global information list from GT spies on UGA camps
-	GT_hive_info = CUDA.zeros(Int8, UGA_camps, 4)
+	GT_hive_info = CuArray([spy_hive_knowledge() for _ in 1:2*UGA_camps])
 	# Create a 2D array of struct to represent the global information list from UGA camps on GT spies
 	UGA_hive_info = CuArray([camp_hive_knowledge() for _ in 1:GT_spies])
 	# --------------------------------------------------------------------------------------------------------
@@ -73,6 +73,8 @@ function tick_host(GT, UGA, topo, bushes, sim_constants)
 			time,
 		)
 		@cuda threads = GT_spies blocks = UGA_camps uga_observe(GT, GT_UGA_adj, UGA_hive_info, time)
+
+		@cuda threads = GT_spies blocks = 1 gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info)
 		# # move the players
 		# @cuda threads = 1 blocks = GT_spies gt_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 		# @cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
