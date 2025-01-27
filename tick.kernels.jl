@@ -227,22 +227,25 @@ function gt_coordinate(knowledge, k_count, prev_k_count, hive_info)
 	n = prev_k_count[me]
 	total = k_count[me]
 
-	latest_knowledge = knowledge[total-n+1:total, me]
-	for knowledge in latest_knowledge
-		if knowledge.source = me
+	# going through the latest entries for a particular spy
+	for i in total-n+1:total
+		spy_knowledge = knowledge[i,me]
+		if spy_knowledge.source == me
 			spy_hive_knowledge = spy_hive_knowledge(
-				knowledge.time,
-				knowledge.size,
-				knowledge.firepower,
-				knowledge.size_error,
-				knowledge.firepower_error
+				spy_knowledge.time,
+				spy_knowledge.size,
+				spy_knowledge.firepower,
+				spy_knowledge.size_error,
+				spy_knowledge.firepower_error
 			)
 		
 		# check if this entry exist in GT_hive_info and add it if it doesn't exist
 		updated_flag = CuArray([0])
-		@cuda threads = length(hive_info) blocks = 1 add_to_gt_hive_info(spy_hive_knowledge, hive_info, updated_flag)
+		@cuda threads = size(hive_info, 1) blocks = 1 add_to_gt_hive_info(spy_hive_knowledge, hive_info, updated_flag)
+		end
 	end
 
+	return
 end
 
 function add_to_gt_hive_info(new_info, hive_info, updated_flag)
@@ -273,4 +276,5 @@ function add_to_gt_hive_info(new_info, hive_info, updated_flag)
 		hive_info[idx] = new_info
 		updated_flag[1] = 1
 	end
+	return
 end

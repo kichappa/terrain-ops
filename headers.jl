@@ -48,7 +48,7 @@ struct spy_hive_knowledge
 	size_error::Float32
 	firepower_error::Float32
 end
-spy_hive_knowledge = spy_hive_knowledge(0, 0.0, 0.0, 0.0, 0.0)
+spy_hive_knowledge() = spy_hive_knowledge(0, 0.0, 0.0, 0.0, 0.0)
 
 struct camp_hive_knowledge
 	x::Int32
