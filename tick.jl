@@ -70,16 +70,16 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 			GT,
 			GT_spies,
 			GT_UGA_adj,
-			GT_hive_info,
 			sim_constants,
 			time,
 		)
 		@cuda threads = GT_spies blocks = UGA_camps uga_observe(GT, GT_UGA_adj, UGA_hive_info, time)
 
-		@cuda threads = GT_spies blocks = 1 gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info)
+		# @cuda threads = maximum(GT_knowledge_count .- GT_knowledge_prev_count) blocks = GT_spies gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info)
 		# # move the players
 		# @cuda threads = 1 blocks = GT_spies gt_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 		# @cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
+		# provide 
 
 
 	end

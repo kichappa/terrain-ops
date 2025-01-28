@@ -15,6 +15,8 @@ struct simulation_constants
 	capture_prob_bush::Float32
 	visible_prob::Float32
 	sim_time::Int32
+	gt_coord_size_threshold::Int32
+	gt_coord_firepower_threshold::Int32
 end
 
 struct camp
@@ -76,14 +78,14 @@ camp_hive_knowledge() = camp_hive_knowledge(0, 0, 0, 0, 0)
 
 struct adjacency
 	visible::Int16 # the spy is visible to the camp
-	interact::Int16	# spy-spy = exchange of information, spy-camp = capture
+	interact::Int16# spy-spy = exchange of information, spy-camp = capture
 	distance::Float32
 end
 adjacency() = adjacency(0, 0.0)
 adjacency(i, d) = adjacency(0, i, d)
 
 function Base.show(io::IO, obj::camp)
-    print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")
+	print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")
 end
 
 function Base.show(io::IO, obj::spy)

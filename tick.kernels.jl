@@ -49,7 +49,7 @@ end
 	# how far is it from me?
 	dist = distance(UGA[this-GT_spies].x, UGA[this-GT_spies].y, GT[that].x, GT[that].y)
 	# Update adjacency matrix
-	if dist <= sim_constants.UGA_interact_range && GT[that].frozen == 0
+	if dist <= sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage)
 		# is that in a bush?
 		capture = Integer(
 			rand(Float32)
@@ -59,8 +59,11 @@ end
 			(1 - GT[that].in_bush) * min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush),
 		)
 		if capture == 1
+			@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that.")
 			GT_UGA_adj[that, this] = adjacency(0, 1, dist)
-			GT[that] = spy(GT[that].x, GT[that].y, 1, time, GT[that].in_bush)
+			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 1, time, GT[that].in_bush)
+			# GT[that].frozen_cycle = time
+			# GT[that].frozen = 1
 		elseif rand(Float32) < sim_constants.visible_prob
 			GT_UGA_adj[that, this] = adjacency(1, 0, dist)
 		else
@@ -75,7 +78,7 @@ end
 	# how far is it from me?
 	dist = distance(GT[this].x, GT[this].y, UGA[that-GT_spies].x, UGA[that-GT_spies].y)
 	# Update adjacency matrix
-	GT_UGA_adj[that, this] = adjacency(0, dist <= sim_constants.GT_interact_range, dist)
+	GT_UGA_adj[that, this] = adjacency(0, dist <= sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage), dist)
 end
 
 function global_coherence(topo, bushes, UGA, GT, GT_spies, UGA_camps, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants::simulation_constants, time)
@@ -90,7 +93,7 @@ function global_coherence(topo, bushes, UGA, GT, GT_spies, UGA_camps, GT_UGA_adj
 				# I am a GT spy. am I captured? If so, is it time to move?
 				if GT[this].frozen == 1 && time - GT[this].frozen_cycle >= sim_constants.escape_time
 					# time to move
-					GT[this] = spy(GT[this].x, GT[this].y, 0, -1, GT[this].in_bush)
+					GT[this] = spy(GT[this].x, GT[this].y, GT[this].z, 0, -1, GT[this].in_bush)
 					# GT[this].frozen = 0
 					# GT[this].frozen_cycle = -1
 				end
@@ -169,7 +172,7 @@ function gt_exchange(knowledge, k_count, prev_k_count, UGA, GT_spies, GT_UGA_adj
 	return
 end
 
-function gt_observe(knowledge, k_count, prev_k_count, UGA, GT_spies, GT_UGA_adj, GT_info, sim_constants::simulation_constants, time)
+function gt_observe(knowledge, k_count, prev_k_count, UGA, GT, GT_spies, GT_UGA_adj, sim_constants::simulation_constants, time)
 	# I am a GT spy
 
 	me = blockIdx().x
@@ -187,7 +190,7 @@ function gt_observe(knowledge, k_count, prev_k_count, UGA, GT_spies, GT_UGA_adj,
 
 	adj = GT_UGA_adj[me, that+GT_spies]
 	# am I close that?
-	if adj.interact == 1
+	if adj.interact == 1 && GT[me].frozen == 0
 		@cuprintln("\tI am a GT spy $me and I see a UGA camp $that. Let's observe it.")
 		# that enemy UGA camp is in my sight, I can observe it but also should be careful
 
@@ -197,15 +200,15 @@ function gt_observe(knowledge, k_count, prev_k_count, UGA, GT_spies, GT_UGA_adj,
 		dist = adj.distance
 
 		# how much error do I have in my knowledge?
-		camp_size_error      = size_error(dist, sim_constants.MAX_ERROR, sim_constants.GT_interact_range)
-		camp_firepower_error = firepower_error(dist, sim_constants.MAX_ERROR, sim_constants.GT_interact_range)
+		camp_size_error      = size_error(dist, sim_constants.MAX_ERROR * exp((GT[me].z>UGA[that].z) * (UGA[that].z-GT[me].z)*sim_constants.height_range_advantage), sim_constants.UGA_interact_range)
+		camp_firepower_error = firepower_error(dist, sim_constants.MAX_ERROR * exp((GT[me].z>UGA[that].z) * (UGA[that].z-GT[me].z)*sim_constants.height_range_advantage), sim_constants.UGA_interact_range)
 		# update my knowledge about that camp
 		camp_size      = UGA[that].size * (1 + camp_size_error * (rand(Float32) * 2 - 1))
 		camp_firepower = UGA[that].firepower * (1 + camp_firepower_error * (rand(Float32) * 2 - 1))
 
 		# store the knowledge
 		current_count = CUDA.@atomic count[1] += 1
-		knowledge[current_count, me] = spy_knowledge(time, camp_size, camp_firepower, camp_size_error, camp_firepower_error, me)
+		knowledge[current_count, me] = spy_knowledge(time, UGA[that].x, UGA[that].y, camp_size, camp_firepower, camp_size_error, camp_firepower_error, me)
 	end
 
 	sync_threads()
@@ -229,19 +232,19 @@ function gt_coordinate(knowledge, k_count, prev_k_count, hive_info)
 
 	# going through the latest entries for a particular spy
 	for i in total-n+1:total
-		spy_knowledge = knowledge[i,me]
+		spy_knowledge = knowledge[i, me]
 		if spy_knowledge.source == me
 			spy_hive_knowledge = spy_hive_knowledge(
 				spy_knowledge.time,
 				spy_knowledge.size,
 				spy_knowledge.firepower,
 				spy_knowledge.size_error,
-				spy_knowledge.firepower_error
+				spy_knowledge.firepower_error,
 			)
-		
-		# check if this entry exist in GT_hive_info and add it if it doesn't exist
-		updated_flag = CuArray([0])
-		@cuda threads = size(hive_info, 1) blocks = 1 add_to_gt_hive_info(spy_hive_knowledge, hive_info, updated_flag)
+
+			# check if this entry exist in GT_hive_info and add it if it doesn't exist
+			updated_flag = CuArray([0])
+			@cuda threads = size(hive_info, 1) blocks = 1 add_to_gt_hive_info(spy_hive_knowledge, hive_info, updated_flag)
 		end
 	end
 
@@ -250,7 +253,7 @@ end
 
 function add_to_gt_hive_info(new_info, hive_info, updated_flag)
 	# Transfer the CuArray to CPU for processing
-    idx = threadIdx().x
+	idx = threadIdx().x
 	if idx > length(hive_info) || updated_flag[1] == 1
 		return
 	end
@@ -259,11 +262,11 @@ function add_to_gt_hive_info(new_info, hive_info, updated_flag)
 
 	# Check if the entry already exists within thresholds
 	if abs(current.size - new_info.size) <= gt_coord_size_threshold &&
-		abs(current.firepower - new_info.firepower) <= gt_coord_firepower_threshold
-		
+	   abs(current.firepower - new_info.firepower) <= gt_coord_firepower_threshold
+
 		# Update if the new entry has better accuracy
 		if new_info.size_error < current.size_error &&
-			new_info.firepower_error < current.firepower_error
+		   new_info.firepower_error < current.firepower_error
 			hive_info[idx] = new_info
 		end
 
@@ -285,7 +288,7 @@ end
 	for i in -search_range:search_range
 		for j in -search_range:search_range
 			if x + i > 0 && x + i <= L && y + j > 0 && y + j <= L
-				if bushes[x + i, y + j] == 1
+				if bushes[x+i, y+j] == 1
 					count += 1
 					nearest_b[count] = (x + i, y + j)
 				end
@@ -296,7 +299,7 @@ end
 
 @inline function random_jump(amplitude, x, y, L)
 	# randomly jump to a new location
-	
+
 	new_x = x + rand(-amplitude:amplitude)
 	new_y = y + rand(-amplitude:amplitude)
 
