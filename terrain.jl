@@ -10,7 +10,7 @@ function generate_points(sim_constants)
 	return alt_p
 end
 
-function topography_gpu(A, alt_p, power, b_density, max_threads = nothing)
+function topography(A, alt_p, power, b_density, max_threads = nothing)
 	m, n = size(A)
 	k, _ = size(alt_p)
 	A_gpu = CuArray(A)
@@ -51,7 +51,7 @@ function topography_gpu(A, alt_p, power, b_density, max_threads = nothing)
 	return collect(B), Int32.(collect(CUDA.rand(Float64, L, L) .< (b_density / 100)))
 end
 
-function slope_gpu(topo)
+function slope(topo, max_threads = nothing)
 	m, n = size(topo)
 	# println("Sizes of m, n = ", m, " ",n)
 	topo_gpu = CuArray(topo)
@@ -91,5 +91,5 @@ function slope_gpu(topo)
 
 	@cuda threads = (threads_x, threads_y) blocks = (blocks_x, blocks_y) slope_kernel_5(topo_gpu, output_x, output_y, m, n)
 
-	return collect(output_x), collect(output_y)
+	return output_x, output_y
 end

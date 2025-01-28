@@ -18,13 +18,22 @@ struct foo
     bar2::Float32
 end
 
+function return_array()
+    return [i for i in 1:8]
+end
+
+function return_foos()
+    return foo(1, 2), foo(3, 4)
+end
+
 function test_kernel(f, arr)
 
-    @cuprintln("Hello from thread ", threadIdx().x, " bar1 = ", f.bar1, " bar2 = ", f.bar2)
-    @cuprintln("Size of array: ", size(arr))
-    arr[1].bar1 = 10
-    arr[1].bar2 = 10.0
-
+    @cuprintln("e^$(threadIdx().x) = ", exp(threadIdx().x))
+    @cuprintln("Here's a random number between 1 and 10: $(rand(1:10)) from thread ", threadIdx().x)
+    
+    f1, f2 = return_foos()
+    @cuprintln("f1.bar1 = $(f1.bar1), f1.bar2 = $(f1.bar2)")
+    @cuprintln("f2.bar1 = $(f2.bar1), f2.bar2 = $(f2.bar2)")
     # for i in 1:2
     #     @cuprintln("Hello from thread ", threadIdx().x, " i = $i")
     #     if rand(Float32) > 0.5
@@ -56,4 +65,4 @@ for i in 1:8
     println()
 end
 
-@cuda threads = 1 blocks = 1 shmem = sizeof(Int) test_kernel(f, CuArray([foo(1, 2)]))
+@cuda threads = 1 blocks = 1 shmem = sizeof(Int) test_kernel(f, CUDA.zeros(Int32, 8))

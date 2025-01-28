@@ -278,3 +278,30 @@ function add_to_gt_hive_info(new_info, hive_info, updated_flag)
 	end
 	return
 end
+
+@inline function nearest_bushes(nearest_b, x, y, bushes, L, search_range)
+	# find the nearest bushes to x, y
+	count = 0
+	for i in -search_range:search_range
+		for j in -search_range:search_range
+			if x + i > 0 && x + i <= L && y + j > 0 && y + j <= L
+				if bushes[x + i, y + j] == 1
+					count += 1
+					nearest_b[count] = (x + i, y + j)
+				end
+			end
+		end
+	end
+end
+
+@inline function random_jump(amplitude, x, y, L)
+	# randomly jump to a new location
+	
+	new_x = x + rand(-amplitude:amplitude)
+	new_y = y + rand(-amplitude:amplitude)
+
+	new_x = max(1, min(L, new_x))
+	new_y = max(1, min(L, new_y))
+
+	return new_x, new_y
+end

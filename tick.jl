@@ -1,7 +1,7 @@
 include("tick.kernels.jl")
 using CSV, DataFrames
 
-function tick_host(GT, UGA, topo, bushes, sim_constants)
+function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 	# Create a 2D array of structs to represent the GT-UGA adjacency matrix 
 	GT_UGA_adj = CuArray([adjacency() for i in 1:GT_spies+UGA_camps, j in 1:GT_spies+UGA_camps])
 	# Create a 2D array of struct to represent the global information list from GT spies on UGA camps
@@ -14,6 +14,7 @@ function tick_host(GT, UGA, topo, bushes, sim_constants)
 
 	# Create a 2D array of (t, s, se, f, fe) x 500*3 x GT_spies that stores the information acquired by GT spies on UGA camps in each time step
 	GT_knowledge = CuArray([spy_knowledge() for _ in 1:sim_constants.sim_time*10, _ in 1:GT_spies])
+
 	GT_knowledge_count = CUDA.ones(Int, GT_spies)
 	GT_knowledge_prev_count = CUDA.ones(Int, GT_spies)
 
@@ -66,6 +67,7 @@ function tick_host(GT, UGA, topo, bushes, sim_constants)
 			GT_knowledge_count,
 			GT_knowledge_prev_count,
 			UGA,
+			GT,
 			GT_spies,
 			GT_UGA_adj,
 			GT_hive_info,

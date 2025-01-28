@@ -8,6 +8,7 @@ struct simulation_constants
 	UGA_camps::Int32
 	GT_interact_range::Int32
 	UGA_interact_range::Int32
+	height_range_advantage::Float32
 	MAX_ERROR::Float32
 	escape_time::Int32
 	capture_prob_no_bush::Float32
@@ -19,6 +20,7 @@ end
 struct camp
 	x::Int32
 	y::Int32
+	z::Float32
 	size::Int32
 	firepower::Int32
 end
@@ -26,6 +28,7 @@ end
 struct spy
 	x::Int32
 	y::Int32
+	z::Float32
 	frozen::Int32
 	frozen_cycle::Int32
 	in_bush::Int32
@@ -33,13 +36,25 @@ end
 
 struct spy_knowledge
 	time::Int32
+	x::Int32
+	y::Int32
 	size::Float32
 	firepower::Float32
 	size_error::Float32
 	firepower_error::Float32
 	source::Int32
 end
-spy_knowledge() = spy_knowledge(0, 0.0, 0.0, 0.0, 0.0, 0)
+spy_knowledge() = spy_knowledge(0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0)
+
+struct spy_hive_knowledge
+	time::Int32
+	size::Float32
+	firepower::Float32
+	size_error::Float32
+	firepower_error::Float32
+end
+
+spy_hive_knowledge() = spy_hive_knowledge(0, 0.0, 0.0, 0.0, 0.0)
 
 struct spy_hive_knowledge
 	time::Int32
@@ -60,8 +75,8 @@ end
 camp_hive_knowledge() = camp_hive_knowledge(0, 0, 0, 0, 0)
 
 struct adjacency
-	visible::Int16
-	interact::Int16
+	visible::Int16 # the spy is visible to the camp
+	interact::Int16	# spy-spy = exchange of information, spy-camp = capture
 	distance::Float32
 end
 adjacency() = adjacency(0, 0.0)

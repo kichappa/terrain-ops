@@ -16,21 +16,25 @@ GT_spies = 50 # 6
 UGA_camps = 5 # 7
 GT_interact_range = 10 # 8
 UGA_interact_range = 20 # 9
+height_range_advantage = 0.5 # 10, this is the advantage in height that a player a has over its enemy b. 
+# range changes by e^((a.z - b.z) * height_range_advantage) for visiblity
+# error changes by e^((b.z - a.z) * height_range_advantage) for information acquest
 MAX_ERROR = 0.3 # 10, this is the maximum error in the GT's information acquest on UGA camps
 escape_time = 20 # 11, this is the time it takes for a GT spy to escape after being captured
 capture_prob_no_bush = 0.5 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
 capture_prob_bush = 0.1 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
 visible_prob = 0.75 # 14, this is the probability of a GT spy being visible to a UGA camp regardless of being captured
-sim_time = 2 # 14, this is the number of time steps the simulation will run for
+sim_time = 5 # 14, this is the number of time steps the simulation will run for
 gt_coord_size_threshold = 2 # size threshold to check if the same UGA camps spotted
 gt_coord_firepower_threshold = 2 # firepower threshold to check if the same UGA camps spotted
 
 # struct of all constants
-sim_constants = simulation_constants(L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush, visible_prob, sim_time)
+sim_constants = simulation_constants(L, seed, altPs, bush_density, max_height, GT_spies, UGA_camps, GT_interact_range, UGA_interact_range, height_range_advantage, MAX_ERROR, escape_time, capture_prob_no_bush, capture_prob_bush, visible_prob, sim_time)
 
 
 # Generate the topography
-topo, bushes = topography_gpu(zeros(Float64, L, L), generate_points(sim_constants), 3, sim_constants.bush_density, 10)
+topo, bushes = topography(zeros(Float64, L, L), generate_points(sim_constants), 3, sim_constants.bush_density, 10)
+slopes_x, slopes_y = slope(topo, 20)
 
 # Plots.plot(1:L, 1:L, topo, st = :surface, ratio = 1, zlim = [0, L], xlim = [0, L], ylim = [0, L], xlabel = "X", ylabel = "Y", zlabel = "Z", bgcolor = "black")
 
@@ -48,4 +52,4 @@ for camp in eachindex(UGA)
 	println(collect(UGA)[camp])
 end
 
-tick_host(GT, UGA, CuArray(topo), CuArray(bushes), sim_constants)
+tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)
