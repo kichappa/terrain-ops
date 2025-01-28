@@ -234,50 +234,40 @@ function gt_coordinate(knowledge, k_count, prev_k_count, hive_info)
 	for i in total-n+1:total
 		spy_knowledge = knowledge[i, me]
 		if spy_knowledge.source == me
-			spy_hive_knowledge = spy_hive_knowledge(
+			new_info = spy_hive_knowledge(
 				spy_knowledge.time,
 				spy_knowledge.size,
 				spy_knowledge.firepower,
 				spy_knowledge.size_error,
 				spy_knowledge.firepower_error,
 			)
-
+		
 			# check if this entry exist in GT_hive_info and add it if it doesn't exist
-			updated_flag = CuArray([0])
-			@cuda threads = size(hive_info, 1) blocks = 1 add_to_gt_hive_info(spy_hive_knowledge, hive_info, updated_flag)
+			for idx in 1:size(hive_info,1)
+				current = hive_info[idx]
+
+				hive_size_diff = abs(current.size - new_info.size)
+				hive_firepower_diff = abs(current.firepower - new_info.firepower)
+
+				# Check if the entry already exists within thresholds
+				if hive_size_diff < gt_coord_size_threshold &&
+					hive_firepower_diff < gt_coord_firepower_threshold
+					
+					# Update if the new entry has better accuracy
+					if new_info.size_error < current.size_error &&
+						new_info.firepower_error < current.firepower_error
+						hive_info[idx] = new_info
+						break
+					end
+				end
+
+				# Replace the first zero-initialized element if not updated yet
+				if current.size == 0.0 && current.firepower == 0.0
+					hive_info[idx] = new_info
+					break
+				end
+			end
 		end
-	end
-
-	return
-end
-
-function add_to_gt_hive_info(new_info, hive_info, updated_flag)
-	# Transfer the CuArray to CPU for processing
-	idx = threadIdx().x
-	if idx > length(hive_info) || updated_flag[1] == 1
-		return
-	end
-
-	current = hive_info[idx]
-
-	# Check if the entry already exists within thresholds
-	if abs(current.size - new_info.size) <= gt_coord_size_threshold &&
-	   abs(current.firepower - new_info.firepower) <= gt_coord_firepower_threshold
-
-		# Update if the new entry has better accuracy
-		if new_info.size_error < current.size_error &&
-		   new_info.firepower_error < current.firepower_error
-			hive_info[idx] = new_info
-		end
-
-		updated_flag[1] = 1
-		return
-	end
-
-	# Replace the first zero-initialized element if not updated yet
-	if current.size == 0.0 && current.firepower == 0.0 && updated_flag[1] == 0
-		hive_info[idx] = new_info
-		updated_flag[1] = 1
 	end
 	return
 end
