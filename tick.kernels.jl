@@ -223,17 +223,22 @@ function gt_observe(knowledge, k_count, prev_k_count, UGA, GT, GT_spies, GT_UGA_
 	return
 end
 
-function gt_coordinate(knowledge, k_count, prev_k_count, hive_info)
+function gt_coordinate(knowledge, k_count, prev_k_count, hive_info, sim_constants::simulation_constants)
 	# Adding info collected by spy agents to spy_hive_knowledge
-	me = threadIdx().x
+	spy_id = blockIdx().x
+	idx = threadIdx().x
 
-	n = prev_k_count[me]
-	total = k_count[me]
+	if spy_id > size(knowledge, 2) || idx > size(hive_info, 1)
+		return
+	end
+
+	n = prev_k_count[spy_id]
+	total = k_count[spy_id]
 
 	# going through the latest entries for a particular spy
 	for i in total-n+1:total
-		spy_knowledge = knowledge[i, me]
-		if spy_knowledge.source == me
+		spy_knowledge = knowledge[i, spy_id]
+		if spy_knowledge.source == spy_id
 			new_info = spy_hive_knowledge(
 				spy_knowledge.time,
 				spy_knowledge.size,
@@ -243,29 +248,27 @@ function gt_coordinate(knowledge, k_count, prev_k_count, hive_info)
 			)
 		
 			# check if this entry exist in GT_hive_info and add it if it doesn't exist
-			for idx in 1:size(hive_info,1)
-				current = hive_info[idx]
+			current = hive_info[idx]
 
-				hive_size_diff = abs(current.size - new_info.size)
-				hive_firepower_diff = abs(current.firepower - new_info.firepower)
+			hive_size_diff = abs(current.size - new_info.size)
+			hive_firepower_diff = abs(current.firepower - new_info.firepower)
 
-				# Check if the entry already exists within thresholds
-				if hive_size_diff < gt_coord_size_threshold &&
-					hive_firepower_diff < gt_coord_firepower_threshold
-					
-					# Update if the new entry has better accuracy
-					if new_info.size_error < current.size_error &&
-						new_info.firepower_error < current.firepower_error
-						hive_info[idx] = new_info
-						break
-					end
-				end
-
-				# Replace the first zero-initialized element if not updated yet
-				if current.size == 0.0 && current.firepower == 0.0
+			# Check if the entry already exists within thresholds
+			if hive_size_diff < sim_constants.gt_coord_size_threshold &&
+				hive_firepower_diff < sim_constants.gt_coord_firepower_threshold
+				
+				# Update if the new entry has better accuracy
+				if new_info.size_error < current.size_error &&
+					new_info.firepower_error < current.firepower_error
 					hive_info[idx] = new_info
 					break
 				end
+			end
+
+			# Replace the first zero-initialized element if not updated yet
+			if current.size == 0.0 && current.firepower == 0.0
+				hive_info[idx] = new_info
+				break
 			end
 		end
 	end
