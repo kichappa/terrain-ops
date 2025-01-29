@@ -28,25 +28,16 @@ end
 
 function test_kernel(f, arr)
 
-    a = CuArray([1, 2, 3, 4, 5, 6, 7, 8])
-    @cuprintln("e^$(threadIdx().x) = ", exp(threadIdx().x))
-    @cuprintln("Here's a random number between 1 and 10: $(rand(1:10)) from thread ", threadIdx().x)
-    
-    f1, f2 = return_foos()
-    @cuprintln("f1.bar1 = $(f1.bar1), f1.bar2 = $(f1.bar2)")
-    @cuprintln("f2.bar1 = $(f2.bar1), f2.bar2 = $(f2.bar2)")
-    # for i in 1:2
-    #     @cuprintln("Hello from thread ", threadIdx().x, " i = $i")
-    #     if rand(Float32) > 0.5
-    #         i-=1
-    #         @cuprintln("Here's an extra random number: ", rand(Float32), " from thread ", threadIdx().x, " i = $i")
-    #         continue
-    #     else 
-    #         @cuprintln("Here's a random number: ", rand(Float32), " from thread ", threadIdx().x, " i = $i")
+    flag = CuDynamicSharedArray(Int32, 1)
+    flag[1] = 0
+    sync_threads()
 
-    #     end
-    # end
-
+    old_flag = CUDA.@atomic flag[1] += 1
+    if old_flag == 0
+        @cuprintln("Thread $(threadIdx().x) is the first to enter the critical section")
+    else
+        @cuprintln("... thread $(threadIdx().x) reaches later")
+    end
     return
 end
 
@@ -59,11 +50,11 @@ array = [foo(i, j) for i in 1:8, j in 1:2]
 
 println("Size of array: ", size(array))
 
-for i in 1:8
-    for j in 1:2
-        print("$(array[i, j].bar1) $(array[i, j].bar2) |")
-    end
-    println()
-end
+# for i in 1:8
+#     for j in 1:2
+#         print("$(array[i, j].bar1) $(array[i, j].bar2) |")
+#     end
+#     println()
+# end
 
-@cuda threads = 1 blocks = 1 shmem = sizeof(Int) test_kernel(f, CUDA.zeros(Int32, 8))
+@cuda threads = 5 blocks = 1 shmem = sizeof(Int) test_kernel(f, CUDA.zeros(Int32, 8))

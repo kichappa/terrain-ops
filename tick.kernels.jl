@@ -49,7 +49,7 @@ end
 	# how far is it from me?
 	dist = distance(UGA[this-GT_spies].x, UGA[this-GT_spies].y, GT[that].x, GT[that].y)
 	# Update adjacency matrix
-	if dist <= sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage)
+	if (dist <= sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage))
 		# is that in a bush?
 		capture = Integer(
 			rand(Float32)
@@ -58,13 +58,13 @@ end
 			+
 			(1 - GT[that].in_bush) * min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush),
 		)
-		if capture == 1
+		if GT[that].frozen == 0 && capture == 1
 			@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that.")
 			GT_UGA_adj[that, this] = adjacency(0, 1, dist)
 			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 1, time, GT[that].in_bush)
 			# GT[that].frozen_cycle = time
 			# GT[that].frozen = 1
-		elseif rand(Float32) < sim_constants.visible_prob
+		elseif capture == 0 && ((Bool(GT[that].in_bush) && (rand(Float32) < sim_constants.visible_prob) || !Bool(GT[that].in_bush)) || Bool(GT[that].frozen))
 			GT_UGA_adj[that, this] = adjacency(1, 0, dist)
 		else
 			GT_UGA_adj[that, this] = adjacency(0, 0, dist)
@@ -124,7 +124,11 @@ function uga_observe(GT, GT_UGA_adj, UGA_hive_info, time)
 	# am I close to that? What adjacency matrix should I check?
 	# that is a GT spy
 	if GT_UGA_adj[me, that].interact == 1 || GT_UGA_adj[me, that].visible == 1
-		@cuprintln("I am a UGA camp $me and I see a GT spy $that. Let's observe it.")
+		if GT[that].frozen == 0
+			@cuprintln("I am a UGA camp $me and I see a GT spy $that. Let's observe it.")
+		else
+			@cuprintln("I am a UGA camp $me and I see a captured GT spy $that. Let's observe it.")
+		end
 		# a new GT spy is close to me and I might have captured it. regardless, I should observe it
 		UGA_hive_info[that] = camp_hive_knowledge(GT[that].x, GT[that].y, time, GT[that].frozen, GT[that].frozen_cycle)
 	end
@@ -200,8 +204,8 @@ function gt_observe(knowledge, k_count, prev_k_count, UGA, GT, GT_spies, GT_UGA_
 		dist = adj.distance
 
 		# how much error do I have in my knowledge?
-		camp_size_error      = size_error(dist, sim_constants.MAX_ERROR * exp((GT[me].z>UGA[that].z) * (UGA[that].z-GT[me].z)*sim_constants.height_range_advantage), sim_constants.UGA_interact_range)
-		camp_firepower_error = firepower_error(dist, sim_constants.MAX_ERROR * exp((GT[me].z>UGA[that].z) * (UGA[that].z-GT[me].z)*sim_constants.height_range_advantage), sim_constants.UGA_interact_range)
+		camp_size_error      = size_error(dist, sim_constants.MAX_ERROR * exp((GT[me].z > UGA[that].z) * (UGA[that].z - GT[me].z) * sim_constants.height_range_advantage), sim_constants.UGA_interact_range)
+		camp_firepower_error = firepower_error(dist, sim_constants.MAX_ERROR * exp((GT[me].z > UGA[that].z) * (UGA[that].z - GT[me].z) * sim_constants.height_range_advantage), sim_constants.UGA_interact_range)
 		# update my knowledge about that camp
 		camp_size      = UGA[that].size * (1 + camp_size_error * (rand(Float32) * 2 - 1))
 		camp_firepower = UGA[that].firepower * (1 + camp_firepower_error * (rand(Float32) * 2 - 1))
@@ -271,6 +275,41 @@ function gt_coordinate(knowledge, k_count, prev_k_count, hive_info, sim_constant
 				break
 			end
 		end
+	end
+	return
+end
+
+function hide_in_bush(bushes, GT, sim_constants::simulation_constants)
+	# I am a GT spy
+
+	me = blockIdx().x
+
+	found = CuDynamicSharedArray(Int32, 1)
+	found[1] = 0
+
+	sync_threads()
+
+	# if I am not in a bush, I should find the nearest bush and hide in it
+	if GT[me].in_bush == 0 && found[1] <= 0
+		dx = Int32(((threadIdx().y .- 1) .% (blockDim().y / 2) .+ 1) .* (-1) .^ ((threadIdx().y .- 1) .÷ (blockDim().y / 2)))
+		dy = Int32(((threadIdx().x .- 1) .% (blockDim().x / 2) .+ 1) .* (-1) .^ ((threadIdx().x .- 1) .÷ (blockDim().x / 2)))
+
+		my_x = GT[me].x
+		my_y = GT[me].y
+
+		if 0 < my_x + dx <= sim_constants.L && 0 < my_y + dy <= sim_constants.L && found[1] == 0
+			if bushes[Int32(my_x + dx), Int32(my_y + dy)] == 1 && found[1] == 0
+				flag = CUDA.@atomic found[1] += 1
+				if flag == 0
+					@cuprintln("GT spy $me found a bush at $(my_x + dx), $(my_y + dy). Hiding in it.")
+					GT[me] = spy(my_x, my_y, GT[me].z, GT[me].frozen, GT[me].frozen_cycle, 1)
+				else
+					return
+				end
+			end
+		end
+	elseif GT[me].in_bush == 1 && found[1] == 0 && threadIdx().x == 1 && threadIdx().y == 1
+		@cuprintln("GT spy $me fis already hiding in a bush.")
 	end
 	return
 end

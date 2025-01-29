@@ -38,6 +38,7 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 	)
 
 
+	@cuda threads = (sim_constants.GT_interact_range * 2, sim_constants.UGA_interact_range * 2) blocks = sim_constants.GT_spies shmem = sizeof(Float32) * 3 hide_in_bush(bushes, GT, sim_constants)
 	for time in 1:sim_constants.sim_time
 		# call the device tick function
 		# tick<<<1,1>>>(state, topo, GT_adj, UGA_adGT_adj, GT_UGA_adj, GT_hive_info, UGA_hive_info, GT_spies, UGA_camps, L)
@@ -78,7 +79,10 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 		@cuda threads = size(GT_hive_info,1) blocks = GT_spies gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info, sim_constants)
 		# # move the players
 		# @cuda threads = 1 blocks = GT_spies gt_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
-		# @cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
+
+		# if time % 10 == 0
+		# 	@cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
+		# end
 		# provide 
 
 
