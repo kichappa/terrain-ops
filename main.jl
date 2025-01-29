@@ -91,7 +91,7 @@ end
 # 	y = 1:L,
 # 	z = transpose(topo .+ bushes),
 # 	# colorscale = custom_colorscale2,
-# 	# surfacecolor = transpose(color_gpu2(alt_p, A, enemiesInA, agentsInA, max_height, power)),
+# 	# surfacecolor = transpose(color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants)),
 # 	ratio = 1,
 # 	zlim = [0, L],
 # 	xlim = [0, L],

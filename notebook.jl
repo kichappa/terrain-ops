@@ -17,34 +17,52 @@ begin
 	using Revise
 end
 
+# ╔═╡ 66b2d373-d1e1-43f3-b1c8-cdc314d1630a
+include("headers.jl")
+
 # ╔═╡ 9c758646-b3d3-48c0-9acf-8fa4d53a91ea
-begin
-	include("headers.jl")
-	include("plots.jl")
-end
+include("plots.jl")
 
 # ╔═╡ 803a6521-fd37-4b35-9b1d-9e28b98abebf
 include("main.jl")
+
+# ╔═╡ 5a5f79ae-18a6-4812-a031-aa6493f0321d
+html"""
+<style>
+  main {
+    max-width: 1200px;
+  }
+</style>
+"""
 
 # ╔═╡ ccce855e-7506-42e0-b795-c246acd25517
 tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)
 
 # ╔═╡ cf14a167-b2b0-4dfe-b70f-d854e4ef3ace
-PlutoPlotly.plot(PlutoPlotly.surface(
-	x = 1:L,
-	y = 1:L,
-	z = transpose(topo .+ bushes),
-	colorscale = colorscale(sim_constants),
-	# surfacecolor = transpose(color_gpu2(alt_p, A, enemiesInA, agentsInA, max_height, power)),
-	ratio = 1,
-	zlim = [0, L],
-	xlim = [0, L],
-	ylim = [0, L],
-	xlabel = "X",
-	ylabel = "Y",
-	zlabel = "Z",
-	showscale = false,
-), layout(sim_constants))
+begin
+	html"""
+	<style>
+	  main {
+	    max-width: 1200px;
+	  }
+	</style>
+	"""
+	PlutoPlotly.plot(PlutoPlotly.surface(
+		x = 1:L,
+		y = 1:L,
+		z = transpose(topo .+ bushes),
+		colorscale = colorscale(sim_constants),
+		surfacecolor = transpose(color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants, 20)),
+		ratio = 1,
+		zlim = [0, L],
+		xlim = [0, L],
+		ylim = [0, L],
+		xlabel = "X",
+		ylabel = "Y",
+		zlabel = "Z",
+		showscale = false,
+	), layout(sim_constants))
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1621,7 +1639,9 @@ version = "1.4.1+2"
 """
 
 # ╔═╡ Cell order:
+# ╠═5a5f79ae-18a6-4812-a031-aa6493f0321d
 # ╠═b40318c8-de65-11ef-2b47-7f36105955c5
+# ╠═66b2d373-d1e1-43f3-b1c8-cdc314d1630a
 # ╠═9c758646-b3d3-48c0-9acf-8fa4d53a91ea
 # ╠═803a6521-fd37-4b35-9b1d-9e28b98abebf
 # ╠═ccce855e-7506-42e0-b795-c246acd25517

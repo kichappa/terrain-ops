@@ -11,6 +11,7 @@ function layout(sim_constants)
 		),
 		plot_bgcolor = "black",  # Set the background color to black
 		paper_bgcolor = "black",
+		width = 1000, height = 1000,
 	)
 end
 
@@ -34,55 +35,64 @@ function colorscale(sim_constants)
 	]
 end
 
-function color_map(alt_p, A, enemiesInA, agentsInA, max_height, power)
-	m, n = size(A)
-	alt_p_gpu = CuArray(alt_p)
-	A_gpu = CuArray(A)
-	colors_A_gpu = similar(A_gpu)
-	enemiesInA_gpu = CuArray(enemiesInA)
-	agentsInA_gpu = CuArray(agentsInA)
+function color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants, max_threads = nothing)
 
-	threads_x = min(max_threads, m)  # Limit to max_threads threads in the x dimension
-	threads_y = min(max_threads, n)  # Limit to max_threads threads in the y dimension
-	blocks_x = ceil(Int, m / threads_x)
-	blocks_y = ceil(Int, n / threads_y)
+	threads_x = min(max_threads, sim_constants.L)  # Limit to max_threads threads in the x dimension
+	threads_y = min(max_threads, sim_constants.L)  # Limit to max_threads threads in the y dimension
+	blocks_x = ceil(Int, sim_constants.L / threads_x)
+	blocks_y = ceil(Int, sim_constants.L / threads_y)
 
-	@cuda threads = (threads_x, threads_y) blocks = (blocks_x, blocks_y) color_kernel2(colors_A_gpu, alt_p_gpu, A_gpu, enemiesInA_gpu, agentsInA_gpu, m, n, max_height, power)
+	topo_color = CuArray(zeros(Float32, sim_constants.L, sim_constants.L))
 
-	return collect(colors_A_gpu)
+	@cuda threads = (threads_x, threads_y) blocks = (blocks_x, blocks_y) color_kernel(topo_color, CuArray(topo), CuArray(bushes), GT, GT_spies, UGA, UGA_camps, sim_constants)
+	return collect(topo_color)
 end
 
-function color_kernel2(colors_A_gpu, alt_p_gpu, A_gpu, enemiesInA_gpu, agentsInA_gpu, m, n, max_height, power)
+function color_kernel(topo_color, topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants)
 	i = threadIdx().x + (blockIdx().x - 1) * blockDim().x
 	j = threadIdx().y + (blockIdx().y - 1) * blockDim().y
-	if 1 <= i <= m && 1 <= j <= n
-		colors_A_gpu[i, j] = 0.0
-		alt_ps_m, _ = size(alt_p_gpu)
-		norm = 0
+	if 0 < i <= sim_constants.L && 0 < j <= sim_constants.L
 
-		if (enemiesInA_gpu[j, i] != 0) # enemy
-			colors_A_gpu[i, j] = max_height + 6
-		elseif (agentsInA_gpu[j, i] != 0) # agent
-			colors_A_gpu[i, j] = max_height + 20
-		elseif (A_gpu[i, j] != 0) # bush
-			colors_A_gpu[i, j] = -10
-		else
-			flag = 1
-			for k in 1:alt_ps_m
-				d = ((alt_p_gpu[k, 2] - i)^2 + (alt_p_gpu[k, 1] - j)^2)^0.5
-				if (d > 0 && flag == 1)
-					colors_A_gpu[i, j] += alt_p_gpu[k, 3] / d^power
-					norm += 1 / d^power
-				else
-					colors_A_gpu[i, j] = alt_p_gpu[k, 3]
-					flag = 0
-				end
-			end
-			if (flag == 1)
-				colors_A_gpu[i, j] /= norm
+		# check if I am inside a camp
+		for camp in 1:UGA_camps
+			# if distance(camp, i, j) < camp_size
+			if sqrt((UGA[camp].x - i)^2 + (UGA[camp].y - j)^2) <= UGA[camp].size
+				topo_color[i, j] = sim_constants.max_height + 20
+				return
 			end
 		end
+
+		# check if a spy is here
+		for spy in 1:GT_spies
+			if GT[spy].x == i && GT[spy].y == j
+				topo_color[i, j] = sim_constants.max_height + 6
+				return
+			end
+		end
+
+		if (bushes[i, j] != 0) # bush
+			topo_color[i, j] = -10
+			return
+		else
+			topo_color[i, j] = topo[i, j]
+			return
+			# flag = 1
+			# for k in 1:alt_ps_m
+			# 	d = ((alt_p_gpu[k, 2] - i)^2 + (alt_p_gpu[k, 1] - j)^2)^0.5
+			# 	if (d > 0 && flag == 1)
+			# 		topo_color[i, j] += alt_p_gpu[k, 3] / d^power
+			# 		norm += 1 / d^power
+			# 	else
+			# 		topo_color[i, j] = alt_p_gpu[k, 3]
+			# 		flag = 0
+			# 	end
+			# end
+			# if (flag == 1)
+			# 	topo_color[i, j] /= norm
+			# end
+		end
 	end
+	topo_color[i, j] = 0.0
 	return
 end
 
