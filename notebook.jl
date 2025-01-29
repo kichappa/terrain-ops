@@ -13,10 +13,38 @@ begin
 	using PlutoPlotly
 	using CSV
 	using DataFrames
+	# import Pluto
+	using Revise
+end
+
+# ╔═╡ 9c758646-b3d3-48c0-9acf-8fa4d53a91ea
+begin
+	include("headers.jl")
+	include("plots.jl")
 end
 
 # ╔═╡ 803a6521-fd37-4b35-9b1d-9e28b98abebf
 include("main.jl")
+
+# ╔═╡ ccce855e-7506-42e0-b795-c246acd25517
+tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)
+
+# ╔═╡ cf14a167-b2b0-4dfe-b70f-d854e4ef3ace
+PlutoPlotly.plot(PlutoPlotly.surface(
+	x = 1:L,
+	y = 1:L,
+	z = transpose(topo .+ bushes),
+	colorscale = colorscale(sim_constants),
+	# surfacecolor = transpose(color_gpu2(alt_p, A, enemiesInA, agentsInA, max_height, power)),
+	ratio = 1,
+	zlim = [0, L],
+	xlim = [0, L],
+	ylim = [0, L],
+	xlabel = "X",
+	ylabel = "Y",
+	zlabel = "Z",
+	showscale = false,
+), layout(sim_constants))
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -27,6 +55,7 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoPlotly = "8e989ff0-3d88-8e9f-f020-2b208a939ff0"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 
 [compat]
 CSV = "~0.10.15"
@@ -34,6 +63,7 @@ CUDA = "~5.6.1"
 DataFrames = "~1.7.0"
 Plots = "~1.40.9"
 PlutoPlotly = "~0.6.2"
+Revise = "~3.7.2"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -42,7 +72,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.3"
 manifest_format = "2.0"
-project_hash = "84882f0ccba05ec45fcc056709161bac68834f8a"
+project_hash = "93241739e1edad1747a73075f9a50cbc0693b279"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -177,6 +207,12 @@ deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jl
 git-tree-sha1 = "009060c9a6168704143100f36ab08f06c2af4642"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.18.2+1"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "7eee164f122511d3e4e1ebadb7956939ea7e1c77"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.6"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -518,6 +554,12 @@ git-tree-sha1 = "eac1206917768cb54957c65a615460d87b455fc1"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "3.1.1+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "a729439c18f7112cbbd9fcdc1771ecc7f071df6a"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.39"
+
 [[deps.JuliaNVTXCallbacks_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "af433a10f3942e882d3c671aacb203e006a5808f"
@@ -718,6 +760,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "f02b56007b064fbfddb4c9cd60161b6dd0f40df3"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.1.0"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "688d6d9e098109051ae33d126fcfc88c4ce4a021"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "3.1.0"
 
 [[deps.MacroTools]]
 git-tree-sha1 = "72aebe0b5051e5143a079a4685a46da330a40472"
@@ -1023,6 +1071,18 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "9bb80533cb9769933954ea4ffbecb3025a783198"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.7.2"
+
+    [deps.Revise.extensions]
+    DistributedExt = "Distributed"
+
+    [deps.Revise.weakdeps]
+    Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1562,6 +1622,9 @@ version = "1.4.1+2"
 
 # ╔═╡ Cell order:
 # ╠═b40318c8-de65-11ef-2b47-7f36105955c5
+# ╠═9c758646-b3d3-48c0-9acf-8fa4d53a91ea
 # ╠═803a6521-fd37-4b35-9b1d-9e28b98abebf
+# ╠═ccce855e-7506-42e0-b795-c246acd25517
+# ╠═cf14a167-b2b0-4dfe-b70f-d854e4ef3ace
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

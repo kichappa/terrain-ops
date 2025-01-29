@@ -1,4 +1,4 @@
-using CUDA, Random
+# using CUDA, Random
 
 # Constants for setting up the simulation
 L = 200 # 1

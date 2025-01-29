@@ -1,10 +1,17 @@
 using CUDA
 using Random
 using PlutoPlotly, Plots
-include("headers.jl")
 include("terrain.jl")
 include("players.jl")
 include("tick.jl")
+
+if is_running_in_pluto()
+	println("\nThis script is running in a Pluto notebook! Include headers yourself by running the following code:")
+	println("\t\tinclude(\"headers.jl\")\n\t\tinclude(\"plots.jl\")")
+else
+	include("plots.jl")
+	include("headers.jl")
+end
 
 # Constants for setting up the simulation
 L = 200 # 1
@@ -70,5 +77,27 @@ for camp in eachindex(UGA)
 	println(collect(UGA)[camp])
 end
 
-tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)
-Plots.plot(1:L, 1:L, topo, st = :surface, ratio = 1, zlim = [0, L], xlim = [0, L], ylim = [0, L], xlabel = "X", ylabel = "Y", zlabel = "Z", bgcolor = "black")
+if is_running_in_pluto()
+	println("\nThis script is running in a Pluto notebook! Run the tick_host function yourself by running the following code:\n")
+	println("\t\ttick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)")
+else
+	tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)
+end
+# Plots.plot(
+# 	1:L, 1:L, topo, st = :surface, ratio = 1, zlim = [0, L], xlim = [0, L], ylim = [0, L], xlabel = "X", ylabel = "Y", zlabel = "Z", bgcolor = "black")
+
+# PlutoPlotly.surface(
+# 	x = 1:L,
+# 	y = 1:L,
+# 	z = transpose(topo .+ bushes),
+# 	# colorscale = custom_colorscale2,
+# 	# surfacecolor = transpose(color_gpu2(alt_p, A, enemiesInA, agentsInA, max_height, power)),
+# 	ratio = 1,
+# 	zlim = [0, L],
+# 	xlim = [0, L],
+# 	ylim = [0, L],
+# 	xlabel = "X",
+# 	ylabel = "Y",
+# 	zlabel = "Z",
+# 	showscale = false,
+# )

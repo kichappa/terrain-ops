@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.40
+# v0.20.4
 
 #> [[frontmatter.author]]
 #> name = "Kishore Shenoy"
@@ -10,22 +10,14 @@ using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
+    #! format: off
     quote
         local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
-end
-
-# ╔═╡ 8bab643a-9618-4d04-ad1d-0cdd3963a630
-# ╠═╡ show_logs = false
-begin
-	ENV["PYTHON"] = ""
-	# Pkg.add(["Conda", "PyCall"])
-	# Pkg.build("PyCall")
-	using Conda, PyCall
-	Conda.add(["numpy"])
+    #! format: on
 end
 
 # ╔═╡ 9083379c-842e-4f7c-936f-1f9e66861af0
@@ -41,6 +33,16 @@ begin
 	using Random
 	using Printf
 	md"Just Importing libraries here..."
+end
+
+# ╔═╡ 8bab643a-9618-4d04-ad1d-0cdd3963a630
+# ╠═╡ show_logs = false
+begin
+	ENV["PYTHON"] = ""
+	# Pkg.add(["Conda", "PyCall"])
+	# Pkg.build("PyCall")
+	using Conda, PyCall
+	Conda.add(["numpy"])
 end
 
 # ╔═╡ 4727903f-a54b-4d73-8998-fa99bb2481aa
@@ -790,15 +792,6 @@ end
 
 # ╔═╡ 6f603c0b-b852-473f-9099-b6292ad395b9
 enemies
-
-# ╔═╡ 076eb88e-fa80-40a0-9873-74329bf9b5a5
-# ╠═╡ disabled = true
-#=╠═╡
-md"Clock $(@bind t2 Clock())"
-  ╠═╡ =#
-
-# ╔═╡ 06e3dba4-39d4-490b-b5c3-cfe43f9e2bf7
-@bind t2 Slider(1:1000, show_value=true)
 
 # ╔═╡ 18b40b26-9338-4616-8deb-1a5c9a6a7ae8
 md"## Python for Agents"
@@ -1713,6 +1706,7 @@ begin
 end
 
 # ╔═╡ 6e9fadb4-879f-435c-bec4-45ed80866825
+#=╠═╡
 begin
 	# Main function for gradient ascent while avoiding collisions
 	function gradient_ascend_avoidCollision2(enemies, t)
@@ -1841,6 +1835,7 @@ begin
 	
 	PlutoPlotly.plot(surfacePlot2, layout)
 end
+  ╠═╡ =#
 
 # ╔═╡ 282cd2e0-8b45-4625-af65-49f2167b1dc4
 md"Clock t = $t"
@@ -2001,6 +1996,17 @@ PlutoPlotly.default_size = (1000, 1000)
 # ╔═╡ 1771e8b7-3aaf-4f06-8efb-bd054d21d140
 #=╠═╡
 PlutoPlot.savefig(pl, "myplot300x300.png")
+  ╠═╡ =#
+
+# ╔═╡ 076eb88e-fa80-40a0-9873-74329bf9b5a5
+# ╠═╡ disabled = true
+#=╠═╡
+md"Clock $(@bind t2 Clock())"
+  ╠═╡ =#
+
+# ╔═╡ 06e3dba4-39d4-490b-b5c3-cfe43f9e2bf7
+#=╠═╡
+@bind t2 Slider(1:1000, show_value=true)
   ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
