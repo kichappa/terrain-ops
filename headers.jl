@@ -84,6 +84,23 @@ end
 adjacency() = adjacency(0, 0.0)
 adjacency(i, d) = adjacency(0, i, d)
 
+struct spy_range_info
+	x::Int16
+	y::Int16
+	value::Float64
+	ifbush::Int32
+end
+spy_range_info() = spy_range_info(0, 0, 0.0, 0)
+
+struct q_values
+	q_size::Float32
+	q_firepower::Float32
+	q_bush::Float32
+	q_terrain::Float32
+end
+q_values() = q_values(0.0, 0.0, 0.0, 0.0)
+
+
 function Base.show(io::IO, obj::camp)
 	print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")
 end

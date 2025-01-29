@@ -340,3 +340,73 @@ end
 
 	return new_x, new_y
 end
+
+function move(GT, gt_knowledge, sim_constants::simulation_constants, k_count, prev_k_count, qb, qt, topo, bushes, spy_range_info, q_values)
+	# Thread and block indices
+	me = blockIdx().x
+	x = GT[me].x
+	y = GT[me].y
+
+	# Shared memory for spy_range_info
+	shared_info = CuDynamicSharedArray(spy_range_info, 1)
+	if threadIdx().x == 1 && threadIdx().y == 1
+			shared_info[1] = spy_range_info(0, 0, -Inf, 0)  
+	end
+	sync_threads()
+
+	idx = threadIdx().x + (x - sim_constants.GT_interact_range)
+	idy = threadIdx().y + (y - sim_constants.GT_interact_range)
+
+	# Check if the indices are within the interaction range
+	if 0 < x - sim_constants.GT_interact_range < idx < x + sim_constants.GT_interact_range &&
+		 0 < y - sim_constants.GT_interact_range < idy < y + sim_constants.GT_interact_range
+
+			z = topo[idx, idy]
+
+			value = 0.0
+
+			# Compute the value based on knowledge
+			for i in k_count[me]-prev_k_count[me]:k_count[me]
+					value += qs_func(idx, idy, q_values.q_size) * gt_knowledge[i, me].size_error
+					value += qf_func(idx, idy, q_values.q_firepower) * gt_knowledge[i, me].firepower_error
+					value += q_values.q_bush * bushes(idx, idy) #check bushes function
+					value += q_values.q_terrain * z
+			end
+
+			# Check if this value is the highest
+			if value > shared_info[1].value
+					# Update shared memory atomically
+					CUDA.@atomic shared_info[1] = spy_range_info(idx, idy, value, bushes(idx, idy))
+			end
+	end
+	sync_threads()
+
+	# Move the GT spy in the direction of the highest value
+	if threadIdx().x == x && threadIdx().y == y && shared_info[1].value > -Inf
+			# Calculate the direction vector
+			dir_x = shared_info[1].x - x
+			dir_y = shared_info[1].y - y
+
+			# Normalize the direction vector
+			dir_magnitude = sqrt(dir_x^2 + dir_y^2)
+			if dir_magnitude > 0
+					dir_x /= dir_magnitude
+					dir_y /= dir_magnitude
+			end
+
+			# Move with step size GT_step_size and take the floor of the value
+			new_x = x + floor(Int, dir_x * sim_constants.GT_step_size)
+			new_y = y + floor(Int, dir_y * sim_constants.GT_step_size)
+
+			# Ensure the new position is within the grid boundaries
+			new_x = max(1, min(sim_constants.L, new_x))
+			new_y = max(1, min(sim_constants.L, new_y))
+
+			# Update the GT spy's position
+			GT[me] = spy(new_x, new_y, GT[me].z, GT[me].frozen, GT[me].frozen_cycle, bushes[Int32(new_x), Int32(new_y)])
+	end
+	if idx==new_x && idy==new_y
+		shared_info[1] = spy_range_info(idx, idy, value, bushes(idx, idy))
+		
+	end
+end
