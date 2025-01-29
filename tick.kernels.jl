@@ -236,11 +236,8 @@ function gt_coordinate(knowledge, k_count, prev_k_count, hive_info, sim_constant
 		return
 	end
 
-	n = prev_k_count[spy_id]
-	total = k_count[spy_id]
-
 	# going through the latest entries for a particular spy
-	for i in total-n+1:total
+	for i in prev_k_count[spy_id]:k_count[spy_id]-1
 		spy_knowledge = knowledge[i, spy_id]
 		if spy_knowledge.source == spy_id
 			new_info = spy_hive_knowledge(
