@@ -1,4 +1,4 @@
-using CUDA, Random
+using CUDA, Random, StaticArrays
 
 # Constants for setting up the simulation
 L = 200 # 1
@@ -27,17 +27,23 @@ function return_foos()
 end
 
 function test_kernel(f, arr)
+    # create a static array of size 2, with elements from f
+    new_vector = SVector{2, Float32}(1.2141, -2.2134)
+    @cuprintln("$(new_vector[1]), $(new_vector[2])")
+    norm = sqrt(sum(x -> x^2, new_vector))
+    new_vector = floor.(new_vector / norm*5) 
+    @cuprintln("$(new_vector[1]), $(new_vector[2])")
+    
+    new_vector = max.(-1, min.(new_vector, 3))
 
-    flag = CuDynamicSharedArray(Int32, 1)
-    flag[1] = 0
+    @cuprintln("$(new_vector[1]), $(new_vector[2])")
+    @cuprintln("sizeof foo: $(sizeof(foo))")
 
-    if flag[1] > threadIdx().x
-        CUDA.@atomic flag[1] = threadIdx().x
-        println("Thread $(threadIdx().x) updated flag to $(flag[1])")
-    else 
-        println("Thread $(threadIdx().x) did not update flag")
+    arr[1] = f[1]
+
+    for _ in 1:10
+        @cuprintln("$(rand(Float32))")
     end
-
     return
 end
 
@@ -56,5 +62,8 @@ println("Size of array: ", size(array))
 #     end
 #     println()
 # end
+b = CuArray([foo(3, 4)])
+@cuda threads = 1 blocks = 1 shmem = sizeof(Int) test_kernel(CuArray([f]), b)
 
-@cuda threads = 5 blocks = 1 shmem = sizeof(Int) test_kernel(f, CUDA.zeros(Int32, 8))
+b = collect(b)
+println("b: $(b[1].bar1), $(b[1].bar2)")

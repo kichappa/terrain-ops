@@ -17,6 +17,7 @@ struct simulation_constants
 	sim_time::Int32
 	gt_coord_size_threshold::Int32
 	gt_coord_firepower_threshold::Int32
+	GT_step_size::Int32
 end
 
 struct camp

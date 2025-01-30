@@ -18,8 +18,13 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 	GT_knowledge_count = CUDA.ones(Int, GT_spies)
 	GT_knowledge_prev_count = CUDA.ones(Int, GT_spies)
 
+	GT_Q_values = CuArray([spy_range_info() for _ in 1:2, _ in 1:GT_spies])
+
+	# learnt parameters
+	learnt_params = q_values(5, 5, 1, 2)
+
 	# write GT_UGA_adj to tmp/GT_UGA_adj.CSV, save it as "GT_UGA_adj[].interact, GT_UGA_adj[].distance"
-	adj_info = map(x -> string(" ", x.interact, ";", x.distance), collect(GT_UGA_adj))
+	adj_info = map(x -> string(" ", x.visible, ";", x.interact, ";", x.distance), collect(GT_UGA_adj))
 	CSV.write(
 		"tmp/GT_UGA_adj.CSV",
 		DataFrame(adj_info, :auto),
@@ -39,6 +44,7 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 
 
 	@cuda threads = (sim_constants.GT_interact_range * 2, sim_constants.UGA_interact_range * 2) blocks = sim_constants.GT_spies shmem = sizeof(Float32) * 3 hide_in_bush(bushes, GT, sim_constants)
+	CUDA.synchronize()
 	for time in 1:sim_constants.sim_time
 		# call the device tick function
 		# tick<<<1,1>>>(state, topo, GT_adj, UGA_adGT_adj, GT_UGA_adj, GT_hive_info, UGA_hive_info, GT_spies, UGA_camps, L)
@@ -77,21 +83,20 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 		@cuda threads = GT_spies blocks = UGA_camps uga_observe(GT, GT_UGA_adj, UGA_hive_info, time)
 
 		@cuda threads = size(GT_hive_info,1) blocks = GT_spies gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info, sim_constants)
-		# # move the players
-		# @cuda threads = 1 blocks = GT_spies gt_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
+		
+		# move the players
+		@cuda threads = (sim_constants.GT_interact_range, sim_constants.GT_interact_range) blocks = GT_spies shmem=sizeof(spy_range_info) + sizeof(Float32) * (1 + sim_constants.GT_interact_range * sim_constants.GT_interact_range) gt_move(GT_Q_values, learnt_params, GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, topo, bushes, GT, sim_constants)
 
 		# if time % 10 == 0
 		# 	@cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 		# end
 		# provide 
-
-
 	end
 	threads = (32, 9)
 	blocks = (cld(GT_spies + UGA_camps, threads[1]), cld(GT_spies + UGA_camps, threads[2]))
 	@cuda threads = threads blocks = blocks global_coherence(topo, bushes, UGA, GT, sim_constants.GT_spies, sim_constants.UGA_camps, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, sim_constants.sim_time)
 
-	adj_info = map(x -> string(" ", x.interact, ";", x.distance), collect(GT_UGA_adj))
+	adj_info = map(x -> string(" ", x.visible, ";", x.interact, ";", x.distance), collect(GT_UGA_adj))
 	CSV.write(
 		"tmp/GT_UGA_adj_post.CSV",
 		DataFrame(adj_info, :auto),

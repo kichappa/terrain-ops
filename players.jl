@@ -20,7 +20,7 @@ function create_GT(n_spies, topo, bushes, L, seed=0)
     println("L: ", L)
     spy_pos = rand(1:L, (n_spies,2))
     spy_z = [topo[row[1], row[2]] for row in eachrow(spy_pos)]
-    spy_frozen = rand(0:1, (n_spies,1))
+    spy_frozen = zeros(Int32, (n_spies,1))
     spy_frozen_cycle = fill(-1, (n_spies,1))
     spy_in_bush = [bushes[row[1], row[2]] for row in eachrow(spy_pos)]
     # spies = hcat(spy_pos, spy_r)

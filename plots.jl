@@ -95,19 +95,3 @@ function color_kernel(topo_color, topo, bushes, GT, GT_spies, UGA, UGA_camps, si
 	topo_color[i, j] = 0.0
 	return
 end
-
-function is_running_in_pluto()
-	# Check environment variable
-	if get(ENV, "PLUTO_PROJECT", "") != ""
-		return true
-	end
-
-	# Check call stack
-	for stack in stacktrace()
-		if occursin("Pluto", string(stack))
-			return true
-		end
-	end
-
-	return false
-end

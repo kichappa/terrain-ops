@@ -40,26 +40,35 @@ end
 end
 
 @inline function uga_uga(this, that, GT_spies, UGA, GT_UGA_adj, sim_constants::simulation_constants)
-	dist = distance(UGA[this-GT_spies].x, UGA[this-GT_spies].y, UGA[that-GT_spies].x, UGA[that-GT_spies].y)
+	dist = distance(UGA[this-GT_spies].x, UGA[this-GT_spies].y, UGA[that-GT_spies].x, UGA[that-GT_spies].y) - UGA[this-GT_spies].size / 2 - UGA[that-GT_spies].size / 2
 	# Update adjacency matrix
 	GT_UGA_adj[that, this] = adjacency(0, dist <= sim_constants.UGA_interact_range, dist)
 end
 
 @inline function uga_gt(this, that, GT, GT_spies, UGA, GT_UGA_adj, sim_constants::simulation_constants, time)
 	# how far is it from me?
-	dist = distance(UGA[this-GT_spies].x, UGA[this-GT_spies].y, GT[that].x, GT[that].y)
+	dist = distance(UGA[this-GT_spies].x, UGA[this-GT_spies].y, GT[that].x, GT[that].y) - UGA[this-GT_spies].size / 2
 	# Update adjacency matrix
 	if (dist <= sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage))
-		# is that in a bush?
-		capture = Integer(
-			rand(Float32)
-			<
-			GT[that].in_bush * sim_constants.capture_prob_bush
-			+
-			(1 - GT[that].in_bush) * min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush),
-		)
+		a = 0.0
+		for _ in 1:2
+			a = rand(Float32)
+        	@cuprintln("$(a)")
+    	end
+		# a = rand(Float32)
+		capture =
+			a < (
+				GT[that].in_bush * sim_constants.capture_prob_bush
+				+
+				(1 - GT[that].in_bush) * min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)
+			)
+
 		if GT[that].frozen == 0 && capture == 1
-			@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that.")
+			if GT[that].in_bush == 1
+				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was in a bush. Capture probability was $(sim_constants.capture_prob_bush).")
+			else
+				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was not in a bush. Capture probability was $(min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)).")
+			end
 			GT_UGA_adj[that, this] = adjacency(0, 1, dist)
 			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 1, time, GT[that].in_bush)
 			# GT[that].frozen_cycle = time
@@ -76,7 +85,7 @@ end
 
 @inline function gt_uga(this, that, GT, GT_spies, UGA, GT_UGA_adj, sim_constants::simulation_constants)
 	# how far is it from me?
-	dist = distance(GT[this].x, GT[this].y, UGA[that-GT_spies].x, UGA[that-GT_spies].y)
+	dist = distance(GT[this].x, GT[this].y, UGA[that-GT_spies].x, UGA[that-GT_spies].y) - UGA[that-GT_spies].size / 2
 	# Update adjacency matrix
 	GT_UGA_adj[that, this] = adjacency(0, dist <= sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage), dist)
 end
@@ -193,6 +202,9 @@ function gt_observe(knowledge, k_count, prev_k_count, UGA, GT, GT_spies, GT_UGA_
 	sync_threads()
 
 	adj = GT_UGA_adj[me, that+GT_spies]
+	if adj.interact == 1
+		@cuprintln("\t\tI am a GT spy $me and I see a UGA camp $that. -------------------")
+	end
 	# am I close that?
 	if adj.interact == 1 && GT[me].frozen == 0
 		@cuprintln("\tI am a GT spy $me and I see a UGA camp $that. Let's observe it.")
@@ -213,6 +225,16 @@ function gt_observe(knowledge, k_count, prev_k_count, UGA, GT, GT_spies, GT_UGA_
 		# store the knowledge
 		current_count = CUDA.@atomic count[1] += 1
 		knowledge[current_count, me] = spy_knowledge(time, UGA[that].x, UGA[that].y, camp_size, camp_firepower, camp_size_error, camp_firepower_error, me)
+	end
+
+	if GT[me].frozen == 1 && that == 1
+		# I am captured
+		# I can't observe anything
+		# I can't move
+		# I can't exchange knowledge
+		# I can't hide in a bush
+		@cuprintln("I am a GT spy $me and I am captured.")
+		return
 	end
 
 	sync_threads()
@@ -281,6 +303,10 @@ function hide_in_bush(bushes, GT, sim_constants::simulation_constants)
 
 	me = blockIdx().x
 
+	# if threadIdx().x == 1 && threadIdx().y == 1
+	# 	@cuprintln("Is GT spy $me captured? $(GT[me].frozen)")
+	# end
+
 	found = CuDynamicSharedArray(Int32, 1)
 	found[1] = 0
 
@@ -335,73 +361,113 @@ end
 	new_x = max(1, min(L, new_x))
 	new_y = max(1, min(L, new_y))
 
-	return new_x, new_y
+	return Int32(new_x), Int32(new_y)
 end
 
-function gt_move(q_values, gt_knowledge, k_count, prev_k_count, topo, bushes, GT, spy_range_info, sim_constants::simulation_constants)
+@inline function q_func(x, y, q, r, x0, y0)
+	return q * (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2)) / (2 * r^2)
+end
+
+
+function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, topo, bushes, GT, sim_constants::simulation_constants)
 	# Thread and block indices
 	me = blockIdx().x
 	x = GT[me].x
 	y = GT[me].y
 
+	# am I frozen?
+	if GT[me].frozen == 1
+		return
+	end
+
 	# Shared memory for spy_range_info
 	shared_info_struct = CuDynamicSharedArray(spy_range_info, 1)
-	shared_info_value = CuDynamicSharedArray(Float32, 1)
+	shared_info_value = CuDynamicSharedArray(Float32, 1, sizeof(spy_range_info) * 1)
+	shared_Q_values = CuDynamicSharedArray(Float32, blockDim().x * blockDim().y, sizeof(spy_range_info) * 1 + sizeof(Float32) * 1)
 	if threadIdx().x == 1 && threadIdx().y == 1
 		shared_info_struct[1] = spy_range_info(0, 0, -Inf, 0)
 		shared_info_value[1] = -Inf
 	end
 	sync_threads()
 
-	idx = threadIdx().x + x - sim_constants.GT_interact_range
-	idy = threadIdx().y + y - sim_constants.GT_interact_range
+	idx = Int32(threadIdx().x + x - sim_constants.GT_interact_range)
+	idy = Int32(threadIdx().y + y - sim_constants.GT_interact_range)
 
 	# Check if the indices are within the interaction range
 	if 0 < idx <= sim_constants.L && 0 < idy <= sim_constants.L
 		value::Float32 = 0.0
 		# Compute the value based on knowledge
+		is_bush = bushes[idx, idy]
+		z = topo[idx, idy]
 		for i in prev_k_count[me]:k_count[me]-1
-			value += qs_func(idx, idy, q_values.q_size) * gt_knowledge[i, me].size_error
-			value += qf_func(idx, idy, q_values.q_firepower) * gt_knowledge[i, me].firepower_error
-			value += q_values.q_bush * bushes(idx, idy) #check bushes function
-			value += q_values.q_terrain * topo[idx, idy]
+			value += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error
+			value += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error
+			value += q_values.q_bush * is_bush
+			value += q_values.q_terrain * z
 		end
+
+		shared_Q_values[threadIdx().x, threadIdx().y] = value
 
 		# Check if this value is the highest
 		CUDA.@atomic shared_info_value[1] = max(shared_info_value[1], value)
 		if value == shared_info_value[1]
 			# Update shared memory atomically
-			shared_info_struct[1] = spy_range_info(idx, idy, value, bushes(idx, idy))
+			shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush)
 		end
 	end
 	sync_threads()
 
+
 	# Move the GT spy in the direction of the highest value
-	if threadIdx().x == x && threadIdx().y == y && shared_info_struct[1].value > -Inf
+	if threadIdx().x == 1 && threadIdx().y == 1 && shared_info_struct[1].value > -Inf
+		if shared_info_struct[1].value == 0 || rand(Float32) < 0.3
+			# Random jump
+			new_x, new_y = random_jump(sim_constants.GT_step_size, x, y, sim_constants.L)
+			GT[me] = spy(new_x, new_y, topo[new_x, new_y], GT[me].frozen, GT[me].frozen_cycle, bushes[new_x, new_y])
+			@cuprintln("GT spy $me is randomly jumping to $(new_x), $(new_y). Max-Q was $(shared_info_value[1]). Information gained in this cycle: $(k_count[me] - prev_k_count[me]).")
+			return
+		end
+		@cuprintln("GT spy $me has the highest q-value $(shared_info_value[1]) at $(shared_info_struct[1].x), $(shared_info_struct[1].y).")
+
+		# if the best position is a bush, jump into it
+		if shared_info_struct[1].in_bush == 1
+			GT[me] = spy(shared_info_struct[1].x, shared_info_struct[1].y, topo[Int32(shared_info_struct[1].x), Int32(shared_info_struct[1].y)], GT[me].frozen, GT[me].frozen_cycle, 1)
+			@cuprintln("GT spy $me is moving to a bush at $(shared_info_struct[1].x), $(shared_info_struct[1].y).")
+			return
+		end
+
 		# Calculate the direction vector
-		dir_x = shared_info_struct[1].x - x
-		dir_y = shared_info_struct[1].y - y
+		# dir_x = shared_info_struct[1].x - x
+		# dir_y = shared_info_struct[1].y - y
+		dir = SVector{2, Float32}(shared_info_struct[1].x - x, shared_info_struct[1].y - y)
 
 		# Normalize the direction vector
-		dir_magnitude = sqrt(dir_x^2 + dir_y^2)
+		# dir_magnitude = sqrt(dir_x^2 + dir_y^2)
+		dir_magnitude = sqrt(sum(x -> x^2, dir))
 		if dir_magnitude > 0
-			dir_x /= dir_magnitude
-			dir_y /= dir_magnitude
+			dir = dir / dir_magnitude * sim_constants.GT_step_size
+			# dir_x /= dir_magnitude
+			# dir_y /= dir_magnitude
 		end
 
 		# Move with step size GT_step_size and take the floor of the value
-		new_x = x + floor(Int, dir_x * sim_constants.GT_step_size)
-		new_y = y + floor(Int, dir_y * sim_constants.GT_step_size)
+		new_xy = SVector{2, Float32}(x, y) + floor.(Int32, dir)
+		# new_x = x + floor(Int, dir_x * sim_constants.GT_step_size)
+		# new_y = y + floor(Int, dir_y * sim_constants.GT_step_size)
 
 		# Ensure the new position is within the grid boundaries
-		new_x = max(1, min(sim_constants.L, new_x))
-		new_y = max(1, min(sim_constants.L, new_y))
+		new_xy = max.(1, min.(sim_constants.L, new_xy))
+		# new_x = max(1, min(sim_constants.L, new_x))
+		# new_y = max(1, min(sim_constants.L, new_y))
 
 		# Update the GT spy's position
-		GT[me] = spy(new_x, new_y, GT[me].z, GT[me].frozen, GT[me].frozen_cycle, bushes[Int32(new_x), Int32(new_y)])
-	end
-	if idx == new_x && idy == new_y
-		shared_info_struct[1] = spy_range_info(idx, idy, value, bushes(idx, idy))
+		GT[me] = spy(new_xy[1], new_xy[2], topo[Int32(new_xy[1]), Int32(new_xy[2])], GT[me].frozen, GT[me].frozen_cycle, bushes[Int32(new_xy[1]), Int32(new_xy[2])])
+		@cuprintln("GT spy $me is moving to $(new_xy[1]), $(new_xy[2]). Bush? $(GT[me].in_bush).")
 
+		# Update the shared memory with the new position
+		source_xy = new_xy - SVector{2, Float32}(x, y) + SVector{2, Float32}(sim_constants.GT_interact_range, sim_constants.GT_interact_range)
+		shared_info_struct[1] = spy_range_info(new_xy[1], new_xy[2], shared_info_value[Int32(source_xy[1]), Int32(source_xy[2])], bushes[Int32(new_xy[1]), Int32(new_xy[2])])
+		GT_Q_values[2, me] = shared_info_struct[1]
 	end
+	return
 end
