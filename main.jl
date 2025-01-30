@@ -1,17 +1,17 @@
 using CUDA
 using Random
-using PlutoPlotly, Plots, StaticArrays
+using PlutoPlotly, Plots, StaticArrays, PlotlyJS
 include("handle_pluto.jl")
 if is_running_in_pluto()
 	println("\nThis script is running in a Pluto notebook! Include headers yourself by running the following code:")
-	println("\t\tinclude(\"headers.jl\")\n\t\tinclude(\"plots.jl\")")
+	println("\t\tinclude(\"headers.jl\")\n\t\tinclude(\"plots.jl\")\n\t\tinclude(\"tick.jl\")")
 else
 	include("headers.jl")
 	include("plots.jl")
+	include("tick.jl")
 end
 include("terrain.jl")
 include("players.jl")
-include("tick.jl")
 
 
 # Constants for setting up the simulation
@@ -22,16 +22,16 @@ altPs = 7 # 3
 bush_density = 9 # 4
 max_height = 10 # 5
 GT_spies = 75 # 6
-UGA_camps = 5 # 7
-GT_interact_range = 10 # 8
+UGA_camps = 7 # 7
+GT_interact_range = 13 # 8
 UGA_interact_range = 15 # 9
 height_range_advantage = 0.2 # 10, this is the advantage in height that a player a has over its enemy b. 
 # range changes by e^((a.z - b.z) * height_range_advantage) for visiblity
 # error changes by e^((b.z - a.z) * height_range_advantage) for information acquest
 MAX_ERROR = 0.3 # 10, this is the maximum error in the GT's information acquest on UGA camps
 escape_time = 20 # 11, this is the time it takes for a GT spy to escape after being captured
-capture_prob_no_bush = 0.2 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
-capture_prob_bush = 0.05 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
+capture_prob_no_bush = 0.05 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
+capture_prob_bush = 0.02 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
 visible_prob = 0.75 # 14, this is the probability of a GT spy being visible to a UGA camp when it is in a bush and not captured
 gt_coord_size_threshold = 2 # size threshold to check if the same UGA camps spotted
 gt_coord_firepower_threshold = 2 # firepower threshold to check if the same UGA camps spotted

@@ -7,7 +7,7 @@ function create_UGA(n_enem, topo, L, seed=0)
     # Random.seed!(seed)
 	enem_pos = rand(1:L, (n_enem,2))
 	enem_z = [topo[row[1], row[2]] for row in eachrow(enem_pos)]
-	enem_r = rand(1:3, (n_enem,1))
+	enem_r = rand(1:7, (n_enem,1))
     enem_firepower = rand(1:100, (n_enem,1))
     return CuArray([camp(enem_pos[i,1], enem_pos[i,2], enem_z[i], enem_r[i], enem_firepower[i]) for i in 1:n_enem])
 end

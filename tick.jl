@@ -56,6 +56,14 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 		# ==================================================================================== ================ ==================================================================================== #
 
 		CUDA.synchronize()
+		GT_UGA_adj_host = collect(GT_UGA_adj)
+		# spy_uga_adj = [GT_UGA_adj_host[i, j].interact for i in 1:GT_spies, j in GT_spies+1:GT_spies+UGA_camps]
+		for j in GT_spies+1:GT_spies+UGA_camps
+			for i in 1:GT_spies
+				print("$(GT_UGA_adj_host[j, i].interact)")#,$(GT_UGA_adj_host[i, j].distance)")
+			end
+			println()
+		end
 		@cuda threads = GT_spies blocks = GT_spies shmem = sizeof(Int) * 2 gt_exchange(
 			GT_knowledge,
 			GT_knowledge_count,
@@ -82,15 +90,44 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 		)
 		@cuda threads = GT_spies blocks = UGA_camps uga_observe(GT, GT_UGA_adj, UGA_hive_info, time)
 
-		@cuda threads = size(GT_hive_info,1) blocks = GT_spies gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info, sim_constants)
-		
-		# move the players
-		@cuda threads = (sim_constants.GT_interact_range, sim_constants.GT_interact_range) blocks = GT_spies shmem=sizeof(spy_range_info) + sizeof(Float32) * (1 + sim_constants.GT_interact_range * sim_constants.GT_interact_range) gt_move(GT_Q_values, learnt_params, GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, topo, bushes, GT, sim_constants)
+		@cuda threads = size(GT_hive_info, 1) blocks = GT_spies gt_coordinate(GT_knowledge, GT_knowledge_count, GT_knowledge_prev_count, GT_hive_info, sim_constants)
 
+		# move the players
+		@cuda threads = (sim_constants.GT_interact_range, sim_constants.GT_interact_range) blocks = GT_spies shmem = sizeof(spy_range_info) + sizeof(Float32) * (1 + sim_constants.GT_interact_range * sim_constants.GT_interact_range) gt_move(
+			GT_Q_values,
+			learnt_params,
+			GT_knowledge,
+			GT_knowledge_count,
+			GT_knowledge_prev_count,
+			topo,
+			bushes,
+			GT,
+			sim_constants,
+		)
+		CUDA.synchronize()
 		# if time % 10 == 0
 		# 	@cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 		# end
 		# provide 
+		p = PlotlyJS.plot(
+			PlotlyJS.surface(
+				x = 1:sim_constants.L,
+				y = 1:sim_constants.L,
+				z = transpose(collect(topo) .+ collect(bushes)),
+				colorscale = colorscale(sim_constants),
+				surfacecolor = transpose(color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants, 20)),
+				ratio = 1,
+				zlim = [0, 10],
+				xlim = [0, sim_constants.L],
+				ylim = [0, sim_constants.L],
+				xlabel = "X",
+				ylabel = "Y",
+				zlabel = "Z",
+				showscale = false,
+			),
+			layout(sim_constants),
+		)
+		PlotlyJS.savefig(p, "img/$(time).png")
 	end
 	threads = (32, 9)
 	blocks = (cld(GT_spies + UGA_camps, threads[1]), cld(GT_spies + UGA_camps, threads[2]))

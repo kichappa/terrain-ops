@@ -72,7 +72,7 @@ struct adjacency
 	interact::Int16# spy-spy = exchange of information, spy-camp = capture
 	distance::Float32
 end
-adjacency() = adjacency(0, 0.0)
+adjacency() = adjacency(0, 0, 0.0)
 adjacency(i, d) = adjacency(0, i, d)
 
 struct spy_range_info
@@ -93,8 +93,8 @@ q_values() = q_values(0.0, 0.0, 0.0, 0.0)
 
 struct reinforcement_rewards
 	bush_reward::Int16  # Reward for moving to a bush
-    camp_reward::Int16  # Reward for spotting a camp #TODO: check
-    frozen_penalty::Int16  # Negative reward for getting frozen
+	camp_reward::Int16  # Reward for spotting a camp #TODO: check
+	frozen_penalty::Int16  # Negative reward for getting frozen
 end
 reinforcement_rewards() = reinforcement_rewards(2, 10, -10)
 
