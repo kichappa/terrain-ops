@@ -422,9 +422,9 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 		for i in prev_k_count[me]:k_count[me]-1
 			value += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error
 			value += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error
-			value += q_values.q_bush * is_bush
-			value += q_values.q_terrain * z
 		end
+		value += q_values.q_bush * is_bush
+		value += q_values.q_terrain * z
 
 		shared_Q_values[threadIdx().x, threadIdx().y] = value
 
