@@ -30,6 +30,17 @@ end
 	return 1 - (1 - MIN_PROB) * (dist / MAX_DIST)^2
 end
 
+
+@inline function min_capture_probability_piecewise(dist, MIN_PROB, MAX_DIST, camp_size)
+	if dist < -s
+		return 1 - (1 - MIN_PROB) * ((dist + s) / (D - s))^2
+	elseif -s <= dist < s
+		return 1
+	else
+		return 1 - (1 - MIN_PROB) * ((dist - s) / (D - s))^2
+	end
+end
+
 @inline function gt_gt(this, that, GT, GT_UGA_adj, sim_constants::simulation_constants)
 	dist = distance(GT[this].x, GT[this].y, GT[that].x, GT[that].y)
 	# Update adjacency matrix
@@ -53,21 +64,30 @@ end
 		a = 0.0
 		for _ in 1:2
 			a = rand(Float32)
-        	@cuprintln("$(a)")
-    	end
+			@cuprintln("$(a)")
+		end
 		# a = rand(Float32)
 		capture =
 			a < (
 				GT[that].in_bush * sim_constants.capture_prob_bush
 				+
-				(1 - GT[that].in_bush) * min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)
+				(1 - GT[that].in_bush) *
+				# min_capture_probability(dist, sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush)
+				min_capture_probability_piecewise(
+					dist + UGA[this-GT_spies].size / 2,
+					sim_constants.capture_prob_no_bush,
+					sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage),
+					UGA[this-GT_spies].size/2,
+				)
 			)
 
 		if GT[that].frozen == 0 && capture == 1
 			if GT[that].in_bush == 1
 				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was in a bush. Capture probability was $(sim_constants.capture_prob_bush).")
 			else
-				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was not in a bush. Capture probability was $(min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)).")
+				@cuprintln(
+					"\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was not in a bush. Capture probability was $(min_capture_probability(dist, sim_constants.UGA_interact_range* exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush))."
+				)
 			end
 			GT_UGA_adj[that, this] = adjacency(0, 1, dist)
 			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 1, time, GT[that].in_bush)
@@ -402,9 +422,9 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 		for i in prev_k_count[me]:k_count[me]-1
 			value += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error
 			value += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error
-			value += q_values.q_bush * is_bush
-			value += q_values.q_terrain * z
 		end
+		value += q_values.q_bush * is_bush
+		value += q_values.q_terrain * z
 
 		shared_Q_values[threadIdx().x, threadIdx().y] = value
 
@@ -475,7 +495,7 @@ end
 
 # function to compute q_values from Q TODO: check if this is correct
 @inline function compute_q_values(Q_value, x, y, x0, y0, r)
-    return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
+	return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
 end
 
 function compute_reward(spy, reinforcement_rewards)
@@ -483,6 +503,7 @@ function compute_reward(spy, reinforcement_rewards)
 	x, y = spy.x, spy.y
 	reward = reinforcement_map[x, y]
 
+<<<<<<< HEAD
 	if spy.frozen == 1:
 		return reinforcement_rewards.frozen_penalty
 	
@@ -506,12 +527,24 @@ function update_Q_values!(GT_Q_values, q_values, GT, reinforcement_rewards, sim_
 
         # Compute reward based on reinforcement map
         reward = compute_reward(GT[me], reinforcement_map)
+=======
+function update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_map, sim_constants)
+	alpha = 0.1  # Learning rate
+	gamma = 0.9  # Discount factor
 
-        # Q-learning update
-        old_Q = GT_Q_values[1, me]
-        max_next_Q = maximum(GT_Q_values[2, :])  # Best future Q-value
-        new_Q = old_Q + alpha * (reward + gamma * max_next_Q)
+	for me in 1:length(GT)
+		x, y = GT[me].x, GT[me].y
 
+		# Compute reward based on reinforcement map
+		# reward = compute_reward(GT[me], topo[x, y], bushes[x, y], reinforcement_map)
+>>>>>>> 2c4d9bc3ed6eeefe89cf9eedfa38311e863b527c
+
+		# Q-learning update
+		old_Q = GT_Q_values[1, me]
+		max_next_Q = maximum(GT_Q_values[2, :])  # Best future Q-value
+		new_Q = old_Q + alpha * (reward + gamma * max_next_Q)
+
+<<<<<<< HEAD
         # Store updated Q-value
         GT_Q_values[2, me] = new_Q  
 		total_new_Q += new_Q
@@ -529,7 +562,25 @@ function update_Q_values!(GT_Q_values, q_values, GT, reinforcement_rewards, sim_
 	# q_values.q_firepower = 
 	# q_values.q_bush = 
 	# q_values.q_terrain = 
+=======
+		# Store updated Q-value
+		GT_Q_values[2, me] = new_Q
 
-    # Move learned Q-values forward
-    GT_Q_values[1, :] .= GT_Q_values[2, :]
+		# Extract knowledge parameters
+		size = GT[me].size
+		firepower = GT[me].firepower
+		size_error = GT[me].size_error
+		firepower_error = GT[me].firepower_error
+
+		# Update q_values using inverse q_func
+		# TODO: compute q_size, q_firepower, q_bush, q_terrain
+		# q_values.q_size = 
+		# q_values.q_firepower = 
+		# q_values.q_bush = 
+		# q_values.q_terrain = 
+	end
+>>>>>>> 2c4d9bc3ed6eeefe89cf9eedfa38311e863b527c
+
+	# Move learned Q-values forward
+	GT_Q_values[1, :] .= GT_Q_values[2, :]
 end
