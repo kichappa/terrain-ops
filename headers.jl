@@ -91,6 +91,12 @@ struct q_values
 end
 q_values() = q_values(0.0, 0.0, 0.0, 0.0)
 
+struct reinforcement_rewards
+	bush_reward::Int16  # Reward for moving to a bush
+    camp_reward::Int16  # Reward for spotting a camp #TODO: check
+    frozen_penalty::Int16  # Negative reward for getting frozen
+end
+reinforcement_rewards() = reinforcement_rewards(0.0, 0.0, 0.0)
 
 function Base.show(io::IO, obj::camp)
 	print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")
