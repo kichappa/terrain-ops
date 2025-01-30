@@ -96,7 +96,7 @@ struct reinforcement_rewards
     camp_reward::Int16  # Reward for spotting a camp #TODO: check
     frozen_penalty::Int16  # Negative reward for getting frozen
 end
-reinforcement_rewards() = reinforcement_rewards(0.0, 0.0, 0.0)
+reinforcement_rewards() = reinforcement_rewards(2, 10, -10)
 
 function Base.show(io::IO, obj::camp)
 	print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")

@@ -469,25 +469,43 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 		shared_info_struct[1] = spy_range_info(new_xy[1], new_xy[2], shared_info_value[Int32(source_xy[1]), Int32(source_xy[2])], bushes[Int32(new_xy[1]), Int32(new_xy[2])])
 		GT_Q_values[2, me] = shared_info_struct[1]
 	end
-	# update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_map, sim_constants)
+	update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_rewards, sim_constants)
 	return
 end
 
-# function to compute q_values from Q
+# function to compute q_values from Q TODO: check if this is correct
 @inline function compute_q_values(Q_value, x, y, x0, y0, r)
     return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
 end
 
+function compute_reward(spy, reinforcement_rewards)
+	# Compute reward based on reinforcement map
+	x, y = spy.x, spy.y
+	reward = reinforcement_map[x, y]
 
-function update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_map, sim_constants)
+	if spy.frozen == 1:
+		return reinforcement_rewards.frozen_penalty
+	
+	if spy.in_bush == 1:
+		return reinforcement_rewards.bush_reward
+
+	#TODO: add camp reward (if a camp is spotted)
+
+	return reinforcement_rewards.not_frozen_reward # Default reward
+
+	return reward
+end
+
+function update_Q_values!(GT_Q_values, q_values, GT, reinforcement_rewards, sim_constants)
     alpha = 0.1  # Learning rate
     gamma = 0.9  # Discount factor
 
+	total_new_Q = 0.0
     for me in 1:length(GT)
         x, y = GT[me].x, GT[me].y
 
         # Compute reward based on reinforcement map
-        # reward = compute_reward(GT[me], topo[x, y], bushes[x, y], reinforcement_map)
+        reward = compute_reward(GT[me], reinforcement_map)
 
         # Q-learning update
         old_Q = GT_Q_values[1, me]
@@ -496,20 +514,21 @@ function update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement
 
         # Store updated Q-value
         GT_Q_values[2, me] = new_Q  
+		total_new_Q += new_Q
+        # # Extract knowledge parameters
+        # size = GT[me].size
+        # firepower = GT[me].firepower
+        # size_error = GT[me].size_error
+        # firepower_error = GT[me].firepower_error
 
-        # Extract knowledge parameters
-        size = GT[me].size
-        firepower = GT[me].firepower
-        size_error = GT[me].size_error
-        firepower_error = GT[me].firepower_error
-
-        # Update q_values using inverse q_func
-		# TODO: compute q_size, q_firepower, q_bush, q_terrain
-        # q_values.q_size = 
-        # q_values.q_firepower = 
-        # q_values.q_bush = 
-        # q_values.q_terrain = 
     end
+	avg_new_Q = total_new_Q / length(GT)
+	# Update q_values using inverse q_func
+	# TODO: compute q_size, q_firepower, q_bush, q_terrain, we need x, y, x0, y0 for this (what to use?)
+	# q_values.q_size = 
+	# q_values.q_firepower = 
+	# q_values.q_bush = 
+	# q_values.q_terrain = 
 
     # Move learned Q-values forward
     GT_Q_values[1, :] .= GT_Q_values[2, :]
