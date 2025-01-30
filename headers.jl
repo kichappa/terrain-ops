@@ -78,7 +78,7 @@ struct spy_range_info
 	x::Int16
 	y::Int16
 	value::Float64
-	ifbush::Int32
+	in_bush::Int32
 end
 spy_range_info() = spy_range_info(0, 0, 0.0, 0)
 

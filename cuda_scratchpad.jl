@@ -1,4 +1,4 @@
-# using CUDA, Random
+using CUDA, Random
 
 # Constants for setting up the simulation
 L = 200 # 1
@@ -30,14 +30,14 @@ function test_kernel(f, arr)
 
     flag = CuDynamicSharedArray(Int32, 1)
     flag[1] = 0
-    sync_threads()
 
-    old_flag = CUDA.@atomic flag[1] += 1
-    if old_flag == 0
-        @cuprintln("Thread $(threadIdx().x) is the first to enter the critical section")
-    else
-        @cuprintln("... thread $(threadIdx().x) reaches later")
+    if flag[1] > threadIdx().x
+        CUDA.@atomic flag[1] = threadIdx().x
+        println("Thread $(threadIdx().x) updated flag to $(flag[1])")
+    else 
+        println("Thread $(threadIdx().x) did not update flag")
     end
+
     return
 end
 
