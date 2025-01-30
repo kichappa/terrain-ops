@@ -30,8 +30,8 @@ height_range_advantage = 0.2 # 10, this is the advantage in height that a player
 # error changes by e^((b.z - a.z) * height_range_advantage) for information acquest
 MAX_ERROR = 0.3 # 10, this is the maximum error in the GT's information acquest on UGA camps
 escape_time = 20 # 11, this is the time it takes for a GT spy to escape after being captured
-capture_prob_no_bush = 0.3 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
-capture_prob_bush = 0.1 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
+capture_prob_no_bush = 0.2 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
+capture_prob_bush = 0.05 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
 visible_prob = 0.75 # 14, this is the probability of a GT spy being visible to a UGA camp when it is in a bush and not captured
 gt_coord_size_threshold = 2 # size threshold to check if the same UGA camps spotted
 gt_coord_firepower_threshold = 2 # firepower threshold to check if the same UGA camps spotted

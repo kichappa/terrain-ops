@@ -53,21 +53,24 @@ end
 		a = 0.0
 		for _ in 1:2
 			a = rand(Float32)
-        	@cuprintln("$(a)")
-    	end
+			@cuprintln("$(a)")
+		end
 		# a = rand(Float32)
 		capture =
 			a < (
 				GT[that].in_bush * sim_constants.capture_prob_bush
 				+
-				(1 - GT[that].in_bush) * min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)
+				(1 - GT[that].in_bush) *
+				min_capture_probability(dist, sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush)
 			)
 
 		if GT[that].frozen == 0 && capture == 1
 			if GT[that].in_bush == 1
 				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was in a bush. Capture probability was $(sim_constants.capture_prob_bush).")
 			else
-				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was not in a bush. Capture probability was $(min_capture_probability(dist, sim_constants.UGA_interact_range, sim_constants.capture_prob_no_bush)).")
+				@cuprintln(
+					"\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was not in a bush. Capture probability was $(min_capture_probability(dist, sim_constants.UGA_interact_range* exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush))."
+				)
 			end
 			GT_UGA_adj[that, this] = adjacency(0, 1, dist)
 			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 1, time, GT[that].in_bush)
