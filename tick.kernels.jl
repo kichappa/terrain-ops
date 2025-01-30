@@ -30,6 +30,17 @@ end
 	return 1 - (1 - MIN_PROB) * (dist / MAX_DIST)^2
 end
 
+
+@inline function min_capture_probability_piecewise(dist, MIN_PROB, MAX_DIST, camp_size)
+	if dist < -s
+		return 1 - (1 - MIN_PROB) * ((dist + s) / (D - s))^2
+	elseif -s <= dist < s
+		return 1
+	else
+		return 1 - (1 - MIN_PROB) * ((dist - s) / (D - s))^2
+	end
+end
+
 @inline function gt_gt(this, that, GT, GT_UGA_adj, sim_constants::simulation_constants)
 	dist = distance(GT[this].x, GT[this].y, GT[that].x, GT[that].y)
 	# Update adjacency matrix
@@ -61,7 +72,13 @@ end
 				GT[that].in_bush * sim_constants.capture_prob_bush
 				+
 				(1 - GT[that].in_bush) *
-				min_capture_probability(dist, sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush)
+				# min_capture_probability(dist, sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush)
+				min_capture_probability_piecewise(
+					dist + UGA[this-GT_spies].size / 2,
+					sim_constants.capture_prob_no_bush,
+					sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage),
+					UGA[this-GT_spies].size/2,
+				)
 			)
 
 		if GT[that].frozen == 0 && capture == 1
@@ -478,42 +495,42 @@ end
 
 # function to compute q_values from Q
 @inline function compute_q_values(Q_value, x, y, x0, y0, r)
-    return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
+	return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
 end
 
 
 function update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_map, sim_constants)
-    alpha = 0.1  # Learning rate
-    gamma = 0.9  # Discount factor
+	alpha = 0.1  # Learning rate
+	gamma = 0.9  # Discount factor
 
-    for me in 1:length(GT)
-        x, y = GT[me].x, GT[me].y
+	for me in 1:length(GT)
+		x, y = GT[me].x, GT[me].y
 
-        # Compute reward based on reinforcement map
-        # reward = compute_reward(GT[me], topo[x, y], bushes[x, y], reinforcement_map)
+		# Compute reward based on reinforcement map
+		# reward = compute_reward(GT[me], topo[x, y], bushes[x, y], reinforcement_map)
 
-        # Q-learning update
-        old_Q = GT_Q_values[1, me]
-        max_next_Q = maximum(GT_Q_values[2, :])  # Best future Q-value
-        new_Q = old_Q + alpha * (reward + gamma * max_next_Q)
+		# Q-learning update
+		old_Q = GT_Q_values[1, me]
+		max_next_Q = maximum(GT_Q_values[2, :])  # Best future Q-value
+		new_Q = old_Q + alpha * (reward + gamma * max_next_Q)
 
-        # Store updated Q-value
-        GT_Q_values[2, me] = new_Q  
+		# Store updated Q-value
+		GT_Q_values[2, me] = new_Q
 
-        # Extract knowledge parameters
-        size = GT[me].size
-        firepower = GT[me].firepower
-        size_error = GT[me].size_error
-        firepower_error = GT[me].firepower_error
+		# Extract knowledge parameters
+		size = GT[me].size
+		firepower = GT[me].firepower
+		size_error = GT[me].size_error
+		firepower_error = GT[me].firepower_error
 
-        # Update q_values using inverse q_func
+		# Update q_values using inverse q_func
 		# TODO: compute q_size, q_firepower, q_bush, q_terrain
-        # q_values.q_size = 
-        # q_values.q_firepower = 
-        # q_values.q_bush = 
-        # q_values.q_terrain = 
-    end
+		# q_values.q_size = 
+		# q_values.q_firepower = 
+		# q_values.q_bush = 
+		# q_values.q_terrain = 
+	end
 
-    # Move learned Q-values forward
-    GT_Q_values[1, :] .= GT_Q_values[2, :]
+	# Move learned Q-values forward
+	GT_Q_values[1, :] .= GT_Q_values[2, :]
 end
