@@ -21,7 +21,7 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 	GT_Q_values = CuArray([spy_range_info() for _ in 1:2, _ in 1:GT_spies])
 
 	# learnt parameters
-	learnt_params = q_values(5, 5, 1, 2)
+	learnt_params = q_values(5, 5, 1, 2, 1)
 
 	# write GT_UGA_adj to tmp/GT_UGA_adj.CSV, save it as "GT_UGA_adj[].interact, GT_UGA_adj[].distance"
 	adj_info = map(x -> string(" ", x.visible, ";", x.interact, ";", x.distance), collect(GT_UGA_adj))
@@ -109,25 +109,25 @@ function tick_host(GT, UGA, topo, bushes, slopes_x, slopes_y, sim_constants)
 		# 	@cuda threads = 1 blocks = UGA_camps uga_move(topo, UGA, GT, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants, time)
 		# end
 		# provide 
-		p = PlotlyJS.plot(
-			PlotlyJS.surface(
-				x = 1:sim_constants.L,
-				y = 1:sim_constants.L,
-				z = transpose(collect(topo) .+ collect(bushes)),
-				colorscale = colorscale(sim_constants),
-				surfacecolor = transpose(color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants, 20)),
-				ratio = 1,
-				zlim = [0, 10],
-				xlim = [0, sim_constants.L],
-				ylim = [0, sim_constants.L],
-				xlabel = "X",
-				ylabel = "Y",
-				zlabel = "Z",
-				showscale = false,
-			),
-			layout(sim_constants),
-		)
-		PlotlyJS.savefig(p, "img/$(time).png")
+		# p = PlotlyJS.plot(
+		# 	PlotlyJS.surface(
+		# 		x = 1:sim_constants.L,
+		# 		y = 1:sim_constants.L,
+		# 		z = transpose(collect(topo) .+ collect(bushes)),
+		# 		colorscale = colorscale(sim_constants),
+		# 		surfacecolor = transpose(color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants, 20)),
+		# 		ratio = 1,
+		# 		zlim = [0, 10],
+		# 		xlim = [0, sim_constants.L],
+		# 		ylim = [0, sim_constants.L],
+		# 		xlabel = "X",
+		# 		ylabel = "Y",
+		# 		zlabel = "Z",
+		# 		showscale = false,
+		# 	),
+		# 	layout(sim_constants),
+		# )
+		# PlotlyJS.savefig(p, "img/$(time).png")
 	end
 	threads = (32, 9)
 	blocks = (cld(GT_spies + UGA_camps, threads[1]), cld(GT_spies + UGA_camps, threads[2]))

@@ -412,7 +412,7 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 		shared_info_value = CuDynamicSharedArray(Float32, 1, sizeof(spy_range_info) * 1)
 		shared_Q_values = CuDynamicSharedArray(Float32, blockDim().x * blockDim().y, sizeof(spy_range_info) * 1 + sizeof(Float32) * 1)
 		if threadIdx().x == 1 && threadIdx().y == 1
-			shared_info_struct[1] = spy_range_info(0, 0, -Inf, 0)
+			shared_info_struct[1] = spy_range_info(0, 0, -Inf, 0, 0, 0, 0, 0)
 			shared_info_value[1] = -Inf
 		end
 	elseif threadIdx().x == 1 && threadIdx().y == 1
@@ -425,25 +425,87 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 
 	if GT[me].frozen == 0
 		# Check if the indices are within the interaction range
+		# if 0 < idx <= sim_constants.L && 0 < idy <= sim_constants.L
+		# 	value::Float32 = 0.0
+		# 	# Compute the value based on knowledge
+		# 	is_bush = bushes[idx, idy]
+		# 	z = topo[idx, idy]
+		# 	for i in prev_k_count[me]:k_count[me]-1
+		# 		value += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error*(q_values.q_time/(time - gt_knowledge[i, me].time))
+		# 		value += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error*(q_values.q_time/(time - gt_knowledge[i, me].time))
+		# 	end
+		# 	value += q_values.q_bush * is_bush
+		# 	value += q_values.q_terrain * z
+
+		# 	shared_Q_values[threadIdx().x, threadIdx().y] = value
+
+		# 	# Check if this value is the highest
+		# 	CUDA.@atomic shared_info_value[1] = max(shared_info_value[1], value)
+		# 	if value == shared_info_value[1]
+		# 		# Update shared memory atomically
+		# 		shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, 0, 0, 0, 0)
+		# 	end
+		# end
 		if 0 < idx <= sim_constants.L && 0 < idy <= sim_constants.L
 			value::Float32 = 0.0
-			# Compute the value based on knowledge
 			is_bush = bushes[idx, idy]
 			z = topo[idx, idy]
+	
+			# Compute individual Q contributions
+			contrib_q_size::Float32 = 0.0
+			contrib_q_firepower::Float32 = 0.0
 			for i in prev_k_count[me]:k_count[me]-1
-				value += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error
-				value += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error
+					contrib_q_size += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error
+					contrib_q_firepower += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error
 			end
-			value += q_values.q_bush * is_bush
-			value += q_values.q_terrain * z
-
+	
+			contrib_q_bush::Float32 = q_values.q_bush * is_bush
+			contrib_q_terrain::Float32 = q_values.q_terrain * z
+	
+			# Compute total value
+			value = contrib_q_size + contrib_q_firepower + contrib_q_bush + contrib_q_terrain
+	
+			# Store the value in shared memory
 			shared_Q_values[threadIdx().x, threadIdx().y] = value
-
-			# Check if this value is the highest
+	
+			
+	
+			# Atomic update of the best Q-value in shared memory
 			CUDA.@atomic shared_info_value[1] = max(shared_info_value[1], value)
+			
+			# If the new value is the best, update the shared struct atomically
 			if value == shared_info_value[1]
-				# Update shared memory atomically
-				shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush)
+					# shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, max_factor)
+					# Compute softmax values in shared memory
+				exp_q_size = exp(contrib_q_size)
+				exp_q_firepower = exp(contrib_q_firepower)
+				exp_q_bush = exp(contrib_q_bush)
+				exp_q_terrain = exp(contrib_q_terrain)
+		
+				sum_exp = exp_q_size + exp_q_firepower + exp_q_bush + exp_q_terrain
+				softmax_q_size = exp_q_size / sum_exp
+				softmax_q_firepower = exp_q_firepower / sum_exp
+				softmax_q_bush = exp_q_bush / sum_exp
+				softmax_q_terrain = exp_q_terrain / sum_exp
+		
+				# Determine the most influential factor
+				max_softmax_value = max(softmax_q_size, softmax_q_firepower, softmax_q_bush, softmax_q_terrain)
+				s, f, t, b = 0, 0, 0, 0
+				if max_softmax_value == softmax_q_size
+						s = 1
+				
+				elseif max_softmax_value == softmax_q_firepower
+						f = 1
+					
+				elseif max_softmax_value == softmax_q_bush
+						b = 1
+
+						
+				elseif max_softmax_value == softmax_q_terrain
+					t = 1
+						
+				end
+				shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, s, f, t, b)
 			end
 		end
 	end
@@ -500,7 +562,7 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 
 			# Update the shared memory with the new position
 			source_xy = new_xy - SVector{2, Float32}(x, y) + SVector{2, Float32}(sim_constants.GT_interact_range, sim_constants.GT_interact_range)
-			shared_info_struct[1] = spy_range_info(new_xy[1], new_xy[2], shared_Q_values[Int32(source_xy[1]), Int32(source_xy[2])], bushes[Int32(new_xy[1]), Int32(new_xy[2])])
+			shared_info_struct[1] = spy_range_info(new_xy[1], new_xy[2], shared_Q_values[Int32(source_xy[1]), Int32(source_xy[2])], bushes[Int32(new_xy[1]), Int32(new_xy[2])], 0, 0, 0, 0)
 			GT_Q_values[2, me] = shared_info_struct[1]
 		end
 		# update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_map, sim_constants)
@@ -513,58 +575,60 @@ end
 	return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
 end
 
-function compute_reward(spy, reinforcement_rewards)
-	# Compute reward based on reinforcement map
-	x, y = spy.x, spy.y
-	reward = reinforcement_map[x, y]
 
-	if spy.frozen == 1:
-		return reinforcement_rewards.frozen_penalty
+
+# function compute_reward(spy, reinforcement_rewards)
+# 	# Compute reward based on reinforcement map
+# 	x, y = spy.x, spy.y
+# 	reward = reinforcement_map[x, y]
+
+# 	if spy.frozen == 1:
+# 		return reinforcement_rewards.frozen_penalty
 	
-	if spy.in_bush == 1:
-		return reinforcement_rewards.bush_reward
+# 	if spy.in_bush == 1:
+# 		return reinforcement_rewards.bush_reward
 
-	#TODO: add camp reward (if a camp is spotted)
+# 	#TODO: add camp reward (if a camp is spotted)
 
-	return reinforcement_rewards.not_frozen_reward # Default reward
+# 	return reinforcement_rewards.not_frozen_reward # Default reward
 
-	return reward
-end
+# 	return reward
+# end
 
-function update_Q_values!(GT_Q_values, q_values, GT, reinforcement_rewards, sim_constants)
-    alpha = 0.1  # Learning rate
-    gamma = 0.9  # Discount factor
+# function update_Q_values!(GT_Q_values, q_values, GT, reinforcement_rewards, sim_constants)
+#     alpha = 0.1  # Learning rate
+#     gamma = 0.9  # Discount factor
 
-	total_new_Q = 0.0
-    for me in 1:length(GT)
-        x, y = GT[me].x, GT[me].y
+# 	total_new_Q = 0.0
+#     for me in 1:length(GT)
+#         x, y = GT[me].x, GT[me].y
 
-        # Compute reward based on reinforcement map
-        reward = compute_reward(GT[me], reinforcement_map)
+#         # Compute reward based on reinforcement map
+#         reward = compute_reward(GT[me], reinforcement_map)
 
-		# Q-learning update
-		old_Q = GT_Q_values[1, me]
-		max_next_Q = maximum(GT_Q_values[2, :])  # Best future Q-value
-		new_Q = old_Q + alpha * (reward + gamma * max_next_Q)
+# 		# Q-learning update
+# 		old_Q = GT_Q_values[1, me]
+# 		max_next_Q = maximum(GT_Q_values[2, :])  # Best future Q-value
+# 		new_Q = old_Q + alpha * (reward + gamma * max_next_Q)
 
-        # Store updated Q-value
-        GT_Q_values[2, me] = new_Q  
-		total_new_Q += new_Q
-        # # Extract knowledge parameters
-        # size = GT[me].size
-        # firepower = GT[me].firepower
-        # size_error = GT[me].size_error
-        # firepower_error = GT[me].firepower_error
+#         # Store updated Q-value
+#         GT_Q_values[2, me] = new_Q  
+# 		total_new_Q += new_Q
+#         # # Extract knowledge parameters
+#         # size = GT[me].size
+#         # firepower = GT[me].firepower
+#         # size_error = GT[me].size_error
+#         # firepower_error = GT[me].firepower_error
 
-    end
-	avg_new_Q = total_new_Q / length(GT)
-	# Update q_values using inverse q_func
-	# TODO: compute q_size, q_firepower, q_bush, q_terrain, we need x, y, x0, y0 for this (what to use?)
-	# q_values.q_size = 
-	# q_values.q_firepower = 
-	# q_values.q_bush = 
-	# q_values.q_terrain = 
+#     end
+# 	avg_new_Q = total_new_Q / length(GT)
+# 	# Update q_values using inverse q_func
+# 	# TODO: compute q_size, q_firepower, q_bush, q_terrain, we need x, y, x0, y0 for this (what to use?)
+# 	# q_values.q_size = 
+# 	# q_values.q_firepower = 
+# 	# q_values.q_bush = 
+# 	# q_values.q_terrain = 
 
-	# Move learned Q-values forward
-	GT_Q_values[1, :] .= GT_Q_values[2, :]
-end
+# 	# Move learned Q-values forward
+# 	GT_Q_values[1, :] .= GT_Q_values[2, :]
+# end

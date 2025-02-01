@@ -1,6 +1,7 @@
 using CUDA
 using Random
-using PlutoPlotly, Plots, StaticArrays, PlotlyJS
+# using PlutoPlotly, Plots, PlotlyJS
+using StaticArrays
 include("handle_pluto.jl")
 if is_running_in_pluto()
 	println("\nThis script is running in a Pluto notebook! Include headers yourself by running the following code:")

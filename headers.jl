@@ -80,16 +80,21 @@ struct spy_range_info
 	y::Int16
 	value::Float64
 	in_bush::Int32
+	size_influence::Float32
+	firepower_influence::Float32
+	bush_influence::Float32
+	terrain_influence::Float32
 end
-spy_range_info() = spy_range_info(0, 0, 0.0, 0)
+spy_range_info() = spy_range_info(0, 0, 0.0, 0, 0.0, 0.0, 0.0, 0.0)
 
 struct q_values
 	q_size::Float32
 	q_firepower::Float32
 	q_bush::Float32
 	q_terrain::Float32
+	q_time::Float32
 end
-q_values() = q_values(0.0, 0.0, 0.0, 0.0)
+q_values() = q_values(0.0, 0.0, 0.0, 0.0, 0.0)
 
 struct reinforcement_rewards
 	bush_reward::Int16  # Reward for moving to a bush
