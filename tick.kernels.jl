@@ -77,11 +77,11 @@ end
 					sim_constants.capture_prob_no_bush,
 					sim_constants.UGA_interact_range, # * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage),
 					UGA[this-GT_spies].size / 2,
-					sim_constants.MAX_ERROR,
+					sim_constants.MAX_CAPTURE_ERROR,
 				)
 				# min_capture_probability(dist, sim_constants.UGA_interact_range * exp((UGA[this-GT_spies].z > GT[that].z) * (UGA[this-GT_spies].z - GT[that].z) * sim_constants.height_range_advantage), sim_constants.capture_prob_no_bush)
 			)
-
+		@cuprintln("UGA spy $(this-GT_spies) is $dist away from GT spy $that. Will it capture it? $(capture)")
 		if GT[that].frozen == 0 && capture == 1
 			if GT[that].in_bush == 1
 				@cuprintln("\tUGA camp $(this-GT_spies) captured GT spy $that. Random was $a. It was in a bush. Capture probability was $(sim_constants.capture_prob_bush).")
@@ -96,8 +96,10 @@ end
 			# GT[that].frozen = 1
 		elseif capture == 0 && ((Bool(GT[that].in_bush) && (rand(Float32) < sim_constants.visible_prob) || !Bool(GT[that].in_bush)) || Bool(GT[that].frozen))
 			GT_UGA_adj[that, this] = adjacency(1, 0, dist)
+			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 0, -1, GT[that].in_bush)
 		else
 			GT_UGA_adj[that, this] = adjacency(0, 0, dist)
+			GT[that] = spy(GT[that].x, GT[that].y, GT[that].z, 0, -1, GT[that].in_bush)
 		end
 	else
 		GT_UGA_adj[that, this] = adjacency(0, 0, dist)
@@ -113,11 +115,11 @@ end
 		dist <= sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage),
 		dist,
 	)
-	if dist <= sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage)
-		@cuprintln(
-			"GT $this is $dist away from UGA $(that-GT_spies). Interact range is $(sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage)). Will it be visible? $(GT_UGA_adj[that, this].interact)"
-		)
-	end
+	# if dist <= sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage)
+	# 	@cuprintln(
+	# 		"GT $this is $dist away from UGA $(that-GT_spies). Interact range is $(sim_constants.GT_interact_range * exp((GT[this].z > UGA[that-GT_spies].z) * (GT[this].z - UGA[that-GT_spies].z) * sim_constants.height_range_advantage)). Will it be visible? $(GT_UGA_adj[that, this].interact)"
+	# 	)
+	# end
 end
 
 function global_coherence(topo, bushes, UGA, GT, GT_spies, UGA_camps, GT_UGA_adj, GT_hive_info, UGA_hive_info, sim_constants::simulation_constants, time)
@@ -355,7 +357,7 @@ function hide_in_bush(bushes, GT, sim_constants::simulation_constants)
 				flag = CUDA.@atomic found[1] += 1
 				if flag == 0
 					@cuprintln("GT spy $me found a bush at $(my_x + dx), $(my_y + dy). Hiding in it.")
-					GT[me] = spy(my_x, my_y, GT[me].z, GT[me].frozen, GT[me].frozen_cycle, 1)
+					GT[me] = spy(my_x, my_y, GT[me].z, 0, -1, 1)
 				else
 					return
 				end
@@ -520,15 +522,15 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 				# Random jump
 				new_x, new_y = random_jump(sim_constants.GT_step_size, x, y, sim_constants.L)
 				GT[me] = spy(new_x, new_y, topo[new_x, new_y], GT[me].frozen, GT[me].frozen_cycle, bushes[new_x, new_y])
-				@cuprintln("GT spy $me is randomly jumping to $(new_x), $(new_y). Max-Q was $(shared_info_value[1]), jump random was $(jump_rand).")
+				@cuprintln("GT spy $me is randomly jumping to $(new_x), $(new_y). Max-Q was $(shared_info_value[1]), jump random was $(jump_rand). Information gained in this cycle: $(k_count[me] - prev_k_count[me]).")
 				return
 			end
-			@cuprintln("GT spy $me has the highest q-value $(shared_info_value[1]) at $(shared_info_struct[1].x), $(shared_info_struct[1].y). Information gained in this cycle: $(k_count[me] - prev_k_count[me]).")
+			@cuprintln("GT spy $me is strategic jumping towards a Max-Q value $(shared_info_value[1]) at $(shared_info_struct[1].x), $(shared_info_struct[1].y). Information gained in this cycle: $(k_count[me] - prev_k_count[me]).")
 
 			# if the best position is a bush, jump into it
 			if shared_info_struct[1].in_bush == 1
 				GT[me] = spy(shared_info_struct[1].x, shared_info_struct[1].y, topo[Int32(shared_info_struct[1].x), Int32(shared_info_struct[1].y)], GT[me].frozen, GT[me].frozen_cycle, 1)
-				@cuprintln("GT spy $me is moving to a bush at $(shared_info_struct[1].x), $(shared_info_struct[1].y).")
+				@cuprintln("\tGT spy $me is moving to a bush at $(shared_info_struct[1].x), $(shared_info_struct[1].y).")
 				return
 			end
 
@@ -558,7 +560,7 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 
 			# Update the GT spy's position
 			GT[me] = spy(new_xy[1], new_xy[2], topo[Int32(new_xy[1]), Int32(new_xy[2])], GT[me].frozen, GT[me].frozen_cycle, bushes[Int32(new_xy[1]), Int32(new_xy[2])])
-			@cuprintln("GT spy $me is moving to $(Int32(new_xy[1])), $(Int32(new_xy[2])). Bush? $(GT[me].in_bush).")
+			@cuprintln("\tGT spy $me is moving to $(Int32(new_xy[1])), $(Int32(new_xy[2])). Bush? $(GT[me].in_bush).")
 
 			# Update the shared memory with the new position
 			source_xy = new_xy - SVector{2, Float32}(x, y) + SVector{2, Float32}(sim_constants.GT_interact_range, sim_constants.GT_interact_range)
@@ -571,19 +573,19 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 end
 
 # function to compute q_values from Q TODO: check if this is correct
-@inline function compute_q_values(Q_value, x, y, x0, y0, r)
-	return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
-end
+# @inline function compute_q_values(Q_value, x, y, x0, y0, r)
+# 	return (Q_value * (2 * r^2)) / (exp(3 / 2 - (3 * ((x - x0)^2 + (y - y0)^2)) / (2 * r^2)) * (3 * ((x - x0)^2 + (y - y0)^2) - r^2))
+# end
 
 
 
-# function compute_reward(spy, reinforcement_rewards)
-# 	# Compute reward based on reinforcement map
-# 	x, y = spy.x, spy.y
-# 	reward = reinforcement_map[x, y]
+# # function compute_reward(spy, reinforcement_rewards)
+# # 	# Compute reward based on reinforcement map
+# # 	x, y = spy.x, spy.y
+# # 	reward = reinforcement_map[x, y]
 
-# 	if spy.frozen == 1:
-# 		return reinforcement_rewards.frozen_penalty
+# # 	if spy.frozen == 1:
+# # 		return reinforcement_rewards.frozen_penalty
 	
 # 	if spy.in_bush == 1:
 # 		return reinforcement_rewards.bush_reward

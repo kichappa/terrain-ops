@@ -30,6 +30,7 @@ height_range_advantage = 0.2 # 10, this is the advantage in height that a player
 # range changes by e^((a.z - b.z) * height_range_advantage) for visiblity
 # error changes by e^((b.z - a.z) * height_range_advantage) for information acquest
 MAX_ERROR = 0.3 # 10, this is the maximum error in the GT's information acquest on UGA camps
+MAX_CAPTURE_ERROR = 0.15 # 10, this is the maximum error in the GT's information acquest on UGA camps
 escape_time = 20 # 11, this is the time it takes for a GT spy to escape after being captured
 capture_prob_no_bush = 0.05 # 12, this is the minimum probability of capturing a GT spy when it is not in a bush
 capture_prob_bush = 0.02 # 13, this is the maximum probability of capturing a GT spy when it is in a bush
@@ -51,6 +52,7 @@ sim_constants = simulation_constants(
 	UGA_interact_range,
 	height_range_advantage,
 	MAX_ERROR,
+	MAX_CAPTURE_ERROR,
 	escape_time,
 	capture_prob_no_bush,
 	capture_prob_bush,

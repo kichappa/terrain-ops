@@ -10,6 +10,7 @@ struct simulation_constants
 	UGA_interact_range::Int32
 	height_range_advantage::Float32
 	MAX_ERROR::Float32
+	MAX_CAPTURE_ERROR::Float32
 	escape_time::Int32
 	capture_prob_no_bush::Float32
 	capture_prob_bush::Float32

@@ -9,8 +9,11 @@ function layout(sim_constants)
 				up = attr(x = 0, y = 1, z = 0),
 			),
 		),
-		plot_bgcolor = "black",  # Set the background color to black
-		paper_bgcolor = "black",
+		# plot_bgcolor = "black",  # Set the background color to black
+		# paper_bgcolor = "black",
+		
+		plot_bgcolor = "white",  # Set the background color to white
+		paper_bgcolor = "white",
 		width = 1000, height = 1000,
 	)
 end
