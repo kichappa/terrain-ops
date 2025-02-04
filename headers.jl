@@ -79,14 +79,15 @@ adjacency(i, d) = adjacency(0, i, d)
 struct spy_range_info
 	x::Int16
 	y::Int16
-	value::Float64
 	in_bush::Int32
-	size_influence::Float32
-	firepower_influence::Float32
-	bush_influence::Float32
-	terrain_influence::Float32
+	value::Float64
+	size::Float32
+	firepower::Float32
+	bush::Float32
+	terrain::Float32
+	decay::Float64
 end
-spy_range_info() = spy_range_info(0, 0, 0.0, 0, 0.0, 0.0, 0.0, 0.0)
+spy_range_info() = spy_range_info(0, 0, 0, 0.0, 0, 0, 0, 0, 0)
 
 struct q_values
 	q_size::Float32
@@ -103,6 +104,15 @@ struct reinforcement_rewards
 	frozen_penalty::Int16  # Negative reward for getting frozen
 end
 reinforcement_rewards() = reinforcement_rewards(2, 10, -10)
+
+struct learning_contributions
+	size::Float32
+	firepower::Float32
+	bush::Float32
+	terrain::Float32
+	time::Float32
+end
+
 
 function Base.show(io::IO, obj::camp)
 	print(io, "$(obj.x), $(obj.y), $(obj.size), $(obj.firepower)")

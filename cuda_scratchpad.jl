@@ -44,6 +44,11 @@ function test_kernel(f, arr)
     for _ in 1:10
         @cuprintln("$(rand(Float32))")
     end
+
+    a = SVector{5, Float32}(1.2141, -2.2134, 0.0, 0.0, 0.0)
+    a +=  SVector{5, Float32}(1.2141, 0.0, 0.0, 0.0, 0.0)
+    a = exp.(a)
+
     return
 end
 

@@ -1,6 +1,6 @@
 using CUDA
 using Random
-# using PlutoPlotly, Plots, PlotlyJS
+using PlutoPlotly, Plots, PlotlyJS
 using StaticArrays
 include("handle_pluto.jl")
 if is_running_in_pluto()

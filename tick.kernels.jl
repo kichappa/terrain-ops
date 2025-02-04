@@ -401,7 +401,7 @@ end
 end
 
 
-function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, topo, bushes, GT, sim_constants::simulation_constants)
+function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, topo, bushes, GT, sim_constants::simulation_constants, time)
 	# Thread and block indices
 	me = blockIdx().x
 	x = GT[me].x
@@ -412,9 +412,9 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 		# Shared memory for spy_range_info
 		shared_info_struct = CuDynamicSharedArray(spy_range_info, 1)
 		shared_info_value = CuDynamicSharedArray(Float32, 1, sizeof(spy_range_info) * 1)
-		shared_Q_values = CuDynamicSharedArray(Float32, blockDim().x * blockDim().y, sizeof(spy_range_info) * 1 + sizeof(Float32) * 1)
+		shared_structs = CuDynamicSharedArray(spy_range_info, blockDim().x * blockDim().y, sizeof(spy_range_info) * 1 + sizeof(Float32) * 2)
 		if threadIdx().x == 1 && threadIdx().y == 1
-			shared_info_struct[1] = spy_range_info(0, 0, -Inf, 0, 0, 0, 0, 0)
+			shared_info_struct[1] = spy_range_info(0, 0,  0,-Inf, 0, 0, 0, 0, 0)
 			shared_info_value[1] = -Inf
 		end
 	elseif threadIdx().x == 1 && threadIdx().y == 1
@@ -426,88 +426,66 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 	idy = Int32(threadIdx().y + y - sim_constants.GT_interact_range)
 
 	if GT[me].frozen == 0
-		# Check if the indices are within the interaction range
-		# if 0 < idx <= sim_constants.L && 0 < idy <= sim_constants.L
-		# 	value::Float32 = 0.0
-		# 	# Compute the value based on knowledge
-		# 	is_bush = bushes[idx, idy]
-		# 	z = topo[idx, idy]
-		# 	for i in prev_k_count[me]:k_count[me]-1
-		# 		value += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error*(q_values.q_time/(time - gt_knowledge[i, me].time))
-		# 		value += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error*(q_values.q_time/(time - gt_knowledge[i, me].time))
-		# 	end
-		# 	value += q_values.q_bush * is_bush
-		# 	value += q_values.q_terrain * z
-
-		# 	shared_Q_values[threadIdx().x, threadIdx().y] = value
-
-		# 	# Check if this value is the highest
-		# 	CUDA.@atomic shared_info_value[1] = max(shared_info_value[1], value)
-		# 	if value == shared_info_value[1]
-		# 		# Update shared memory atomically
-		# 		shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, 0, 0, 0, 0)
-		# 	end
-		# end
 		if 0 < idx <= sim_constants.L && 0 < idy <= sim_constants.L
 			value::Float32 = 0.0
-			is_bush = bushes[idx, idy]
+			is_bush = Int32(bushes[idx, idy])
 			z = topo[idx, idy]
-	
+
 			# Compute individual Q contributions
 			contrib_q_size::Float32 = 0.0
 			contrib_q_firepower::Float32 = 0.0
-			for i in prev_k_count[me]:k_count[me]-1
-					contrib_q_size += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].size_error
-					contrib_q_firepower += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) * gt_knowledge[i, me].firepower_error
+			# for i in prev_k_count[me]:k_count[me]-1
+			for i in 1:k_count[me]-1
+				contrib_q_size += q_func(idx, idy, q_values.q_size, gt_knowledge[i, me].size, gt_knowledge[i, me].x, gt_knowledge[i, me].y) *
+					gt_knowledge[i, me].size_error *
+					(q_values.q_time / (time - gt_knowledge[i, me].time))
+				contrib_q_firepower += q_func(idx, idy, q_values.q_firepower, gt_knowledge[i, me].size + sim_constants.UGA_interact_range, gt_knowledge[i, me].x, gt_knowledge[i, me].y) *
+					gt_knowledge[i, me].firepower_error *
+					(q_values.q_time / (time - gt_knowledge[i, me].time))
 			end
-	
 			contrib_q_bush::Float32 = q_values.q_bush * is_bush
 			contrib_q_terrain::Float32 = q_values.q_terrain * z
-	
+			contrib_q_time::Float64 = q_values.q_time # / (time - gt_knowledge[i, me].time)
+
 			# Compute total value
 			value = contrib_q_size + contrib_q_firepower + contrib_q_bush + contrib_q_terrain
-	
+
 			# Store the value in shared memory
-			shared_Q_values[threadIdx().x, threadIdx().y] = value
-	
-			
-	
+			shared_structs[threadIdx().x, threadIdx().y] = spy_range_info(idx, idy, is_bush, value, contrib_q_size, contrib_q_firepower, contrib_q_bush, contrib_q_terrain, contrib_q_time)
+
 			# Atomic update of the best Q-value in shared memory
 			CUDA.@atomic shared_info_value[1] = max(shared_info_value[1], value)
-			
+
 			# If the new value is the best, update the shared struct atomically
 			if value == shared_info_value[1]
-					# shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, max_factor)
-					# Compute softmax values in shared memory
-				exp_q_size = exp(contrib_q_size)
-				exp_q_firepower = exp(contrib_q_firepower)
-				exp_q_bush = exp(contrib_q_bush)
-				exp_q_terrain = exp(contrib_q_terrain)
-		
-				sum_exp = exp_q_size + exp_q_firepower + exp_q_bush + exp_q_terrain
-				softmax_q_size = exp_q_size / sum_exp
-				softmax_q_firepower = exp_q_firepower / sum_exp
-				softmax_q_bush = exp_q_bush / sum_exp
-				softmax_q_terrain = exp_q_terrain / sum_exp
-		
-				# Determine the most influential factor
-				max_softmax_value = max(softmax_q_size, softmax_q_firepower, softmax_q_bush, softmax_q_terrain)
-				s, f, t, b = 0, 0, 0, 0
-				if max_softmax_value == softmax_q_size
-						s = 1
-				
-				elseif max_softmax_value == softmax_q_firepower
-						f = 1
-					
-				elseif max_softmax_value == softmax_q_bush
-						b = 1
+				# shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, max_factor)
+				# Compute softmax values in shared memory
+				# contrib_q_size = exp(contrib_q_size)
+				# contrib_q_firepower = exp(contrib_q_firepower)
+				# contrib_q_bush = exp(contrib_q_bush)
+				# contrib_q_terrain = exp(contrib_q_terrain)
 
-						
-				elseif max_softmax_value == softmax_q_terrain
-					t = 1
-						
-				end
-				shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, s, f, t, b)
+				# contrib_q_size = exp_q_size / (exp_q_size + exp_q_firepower + exp_q_bush + exp_q_terrain)
+				# contrib_q_firepower = exp_q_firepower / (exp_q_size + exp_q_firepower + exp_q_bush + exp_q_terrain)
+				# contrib_q_bush = exp_q_bush / (exp_q_size + exp_q_firepower + exp_q_bush + exp_q_terrain)
+				# contrib_q_terrain = exp_q_terrain / (exp_q_size + exp_q_firepower + exp_q_bush + exp_q_terrain)
+
+				# # Determine the most influential factor
+				# softmax = max(contrib_q_size, contrib_q_firepower, contrib_q_bush, contrib_q_terrain)
+				# s, f, t, b, d = 0, 0, 0, 0, 0
+				# if softmax == softmax_q_size
+				# 	s = 1
+				# 	d = 1
+				# elseif softmax == softmax_q_firepower
+				# 	f = 1
+				# 	d = 1
+				# elseif softmax == softmax_q_bush
+				# 	b = 1
+				# elseif softmax == softmax_q_terrain
+				# 	t = 1
+				# end
+				# shared_info_struct[1] = spy_range_info(idx, idy, value, is_bush, s, f, t, b, d)
+				shared_info_struct[1] = shared_structs[threadIdx().x, threadIdx().y]
 			end
 		end
 	end
@@ -535,28 +513,19 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 			end
 
 			# Calculate the direction vector
-			# dir_x = shared_info_struct[1].x - x
-			# dir_y = shared_info_struct[1].y - y
 			dir = SVector{2, Float32}(shared_info_struct[1].x - x, shared_info_struct[1].y - y)
 
 			# Normalize the direction vector
-			# dir_magnitude = sqrt(dir_x^2 + dir_y^2)
 			dir_magnitude = sqrt(sum(x -> x^2, dir))
 			if dir_magnitude > 0
 				dir = dir / dir_magnitude * sim_constants.GT_step_size
-				# dir_x /= dir_magnitude
-				# dir_y /= dir_magnitude
 			end
 
 			# Move with step size GT_step_size and take the floor of the value
 			new_xy = SVector{2, Float32}(x, y) + floor.(Int32, dir)
-			# new_x = x + floor(Int, dir_x * sim_constants.GT_step_size)
-			# new_y = y + floor(Int, dir_y * sim_constants.GT_step_size)
 
 			# Ensure the new position is within the grid boundaries
 			new_xy = max.(1, min.(sim_constants.L, new_xy))
-			# new_x = max(1, min(sim_constants.L, new_x))
-			# new_y = max(1, min(sim_constants.L, new_y))
 
 			# Update the GT spy's position
 			GT[me] = spy(new_xy[1], new_xy[2], topo[Int32(new_xy[1]), Int32(new_xy[2])], GT[me].frozen, GT[me].frozen_cycle, bushes[Int32(new_xy[1]), Int32(new_xy[2])])
@@ -564,7 +533,7 @@ function gt_move(GT_Q_values, q_values, gt_knowledge, k_count, prev_k_count, top
 
 			# Update the shared memory with the new position
 			source_xy = new_xy - SVector{2, Float32}(x, y) + SVector{2, Float32}(sim_constants.GT_interact_range, sim_constants.GT_interact_range)
-			shared_info_struct[1] = spy_range_info(new_xy[1], new_xy[2], shared_Q_values[Int32(source_xy[1]), Int32(source_xy[2])], bushes[Int32(new_xy[1]), Int32(new_xy[2])], 0, 0, 0, 0)
+			shared_info_struct[1] = shared_structs[Int32(source_xy[1]), Int32(source_xy[2])]
 			GT_Q_values[2, me] = shared_info_struct[1]
 		end
 		# update_Q_values!(GT_Q_values, q_values, GT, topo, bushes, reinforcement_map, sim_constants)
@@ -586,7 +555,7 @@ end
 
 # # 	if spy.frozen == 1:
 # # 		return reinforcement_rewards.frozen_penalty
-	
+
 # 	if spy.in_bush == 1:
 # 		return reinforcement_rewards.bush_reward
 
