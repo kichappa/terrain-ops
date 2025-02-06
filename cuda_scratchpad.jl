@@ -27,28 +27,15 @@ function return_foos()
 end
 
 function test_kernel(f, arr)
-    # create a static array of size 2, with elements from f
-    new_vector = SVector{2, Float32}(1.2141, -2.2134)
-    @cuprintln("$(new_vector[1]), $(new_vector[2])")
-    norm = sqrt(sum(x -> x^2, new_vector))
-    new_vector = floor.(new_vector / norm*5) 
-    @cuprintln("$(new_vector[1]), $(new_vector[2])")
-    
-    new_vector = max.(-1, min.(new_vector, 3))
 
-    @cuprintln("$(new_vector[1]), $(new_vector[2])")
-    @cuprintln("sizeof foo: $(sizeof(foo))")
+    # calculate the mean of the array [1, 2, 3, 4, 5]
+    a = CuStaticSharedArray(Int32, 1)
+    b = CuStaticSharedArray(Int32, 1)
 
-    arr[1] = f[1]
+    a[1] = 50
+    b[1] = 40
 
-    for _ in 1:10
-        @cuprintln("$(rand(Float32))")
-    end
-
-    a = SVector{5, Float32}(1.2141, -2.2134, 0.0, 0.0, 0.0)
-    a +=  SVector{5, Float32}(1.2141, 0.0, 0.0, 0.0, 0.0)
-    a = exp.(a)
-
+    @cuprintf("a: %d, b: %d\n", a[1], b[1])
     return
 end
 
@@ -68,7 +55,7 @@ println("Size of array: ", size(array))
 #     println()
 # end
 b = CuArray([foo(3, 4)])
-@cuda threads = 1 blocks = 1 shmem = sizeof(Int) test_kernel(CuArray([f]), b)
+@cuda threads = 1 blocks = 1 shmem = sizeof(Int)*2 test_kernel(CuArray([f]), b)
 
 b = collect(b)
 println("b: $(b[1].bar1), $(b[1].bar2)")

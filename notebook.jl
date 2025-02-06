@@ -16,6 +16,7 @@ begin
 	# import Pluto
 	using Revise
 	using StaticArrays
+	using FileIO
 end
 
 # ╔═╡ 66b2d373-d1e1-43f3-b1c8-cdc314d1630a
@@ -30,7 +31,7 @@ include("main.jl")
 # ╔═╡ ccce855e-7506-42e0-b795-c246acd25517
 begin
 	include("tick.jl")
-	tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants)
+	tick_host(GT, UGA, CuArray(topo), CuArray(bushes), slopes_x, slopes_y, sim_constants, 40)
 end
 
 # ╔═╡ 5a5f79ae-18a6-4812-a031-aa6493f0321d
@@ -57,8 +58,8 @@ begin
 		z = transpose(topo .+ bushes),
 		colorscale = colorscale(sim_constants),
 		surfacecolor = transpose(color_map(topo, bushes, GT, GT_spies, UGA, UGA_camps, sim_constants, 20)),
-		ratio = 1,
-		zlim = [0, 10],
+		# ratio = 1,
+		zlim = [0, sim_constants.max_height],
 		xlim = [0, L],
 		ylim = [0, L],
 		xlabel = "X",
@@ -74,6 +75,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 PlotlyJS = "f0f68f2c-4968-5e81-91da-67840de0976a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoPlotly = "8e989ff0-3d88-8e9f-f020-2b208a939ff0"
@@ -85,6 +87,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 CSV = "~0.10.15"
 CUDA = "~5.6.1"
 DataFrames = "~1.7.0"
+FileIO = "~1.16.6"
 PlotlyJS = "~0.18.15"
 Plots = "~1.40.9"
 PlutoPlotly = "~0.6.2"
@@ -98,7 +101,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.3"
 manifest_format = "2.0"
-project_hash = "da2a8263194fe3e0634b561bdd2654b181ee4e80"
+project_hash = "143091d91d9cfe1c283f90c61e8c356616f61159"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -408,6 +411,16 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "466d45dc38e15794ec7d5d63ec03d776a9aff36e"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.4+1"
+
+[[deps.FileIO]]
+deps = ["Pkg", "Requires", "UUIDs"]
+git-tree-sha1 = "2dd20384bf8c6d411b5c7370865b1e9b26cb2ea3"
+uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+version = "1.16.6"
+weakdeps = ["HTTP"]
+
+    [deps.FileIO.extensions]
+    HTTPExt = "HTTP"
 
 [[deps.FilePathsBase]]
 deps = ["Compat", "Dates"]

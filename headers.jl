@@ -24,10 +24,13 @@ end
 struct camp
 	x::Int32
 	y::Int32
+	old_x::Int32
+	old_y::Int32
 	z::Float32
 	size::Int32
 	firepower::Int32
 end
+camp(x, y, z, size, firepower) = camp(x, y, x, y, z, size, firepower)
 
 struct spy
 	x::Int32
@@ -80,7 +83,7 @@ struct spy_range_info
 	x::Int16
 	y::Int16
 	in_bush::Int32
-	value::Float64
+	Q_value::Float64
 	size::Float32
 	firepower::Float32
 	bush::Float32
@@ -99,9 +102,10 @@ end
 q_values() = q_values(0.0, 0.0, 0.0, 0.0, 0.0)
 
 struct reinforcement_rewards
-	bush_reward::Int16  # Reward for moving to a bush
-	camp_reward::Int16  # Reward for spotting a camp #TODO: check
+	camp_reward::Int16  # Reward for spotting a camp
+	accuracy_ramp::Int16  # Ramp for accuracy in spotting a camp
 	frozen_penalty::Int16  # Negative reward for getting frozen
+	lr::Float32  # Learning rate
 end
 reinforcement_rewards() = reinforcement_rewards(2, 10, -10)
 

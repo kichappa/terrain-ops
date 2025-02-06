@@ -16,12 +16,12 @@ include("players.jl")
 
 
 # Constants for setting up the simulation
-sim_time = 10 # 14, this is the number of time steps the simulation will run for
+sim_time = 40 # 14, this is the number of time steps the simulation will run for
 L = 200 # 1
 seed = 758 # 2
 altPs = 7 # 3
 bush_density = 9 # 4
-max_height = 10 # 5
+max_height = 20 # 5
 GT_spies = 75 # 6
 UGA_camps = 7 # 7
 GT_interact_range = 13 # 8
@@ -37,7 +37,7 @@ capture_prob_bush = 0.02 # 13, this is the maximum probability of capturing a GT
 visible_prob = 0.75 # 14, this is the probability of a GT spy being visible to a UGA camp when it is in a bush and not captured
 gt_coord_size_threshold = 2 # size threshold to check if the same UGA camps spotted
 gt_coord_firepower_threshold = 2 # firepower threshold to check if the same UGA camps spotted
-GT_step_size = 2 # step size for GT spies
+GT_step_size = 1 # step size for GT spies
 
 # struct of all constants
 sim_constants = simulation_constants(
